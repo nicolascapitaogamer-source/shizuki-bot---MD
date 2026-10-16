@@ -9527,10 +9527,7 @@ const emojiCmd = emojiDoComando(command);
             }
             const tsRei = Number(msg.messageTimestamp);
             if (tsRei && Date.now() / 1000 - tsRei > 60) break;
-            if (!process.env.BOT_LOOP) {
-              await sock.sendMessage(from, { text: '⚠️ O bot não foi iniciado pelo modo de reinício. Feche e inicie com: npm start' }, { quoted: msg });
-              break;
-            }
+
             fs.writeFileSync(FILE_RESTART, JSON.stringify({ chat: from, texto: '✅ *Bot reiniciado com sucesso!*\n\nVoltei mais forte e pronto pra ação! 💜' }));
             await sock.sendMessage(from, { text: '🔄 *Reiniciando o bot...*\n\nVolto em alguns segundinhos! ⏳' }, { quoted: msg });
             setTimeout(() => process.exit(42), 1500);
@@ -9548,10 +9545,7 @@ const emojiCmd = emojiDoComando(command);
             }
             const tsUpd = Number(msg.messageTimestamp);
             if (tsUpd && Date.now() / 1000 - tsUpd > 60) break;
-            if (!process.env.BOT_LOOP) {
-              await sock.sendMessage(from, { text: '⚠️ O bot não foi iniciado pelo modo de reinício. Feche e inicie com: npm start' }, { quoted: msg });
-              break;
-            }
+
             await sock.sendMessage(from, { text: '🔄 *Puxando atualizações do GitHub...*\n\nSó um instante! ⏳' }, { quoted: msg });
             execFile('git', ['pull'], { cwd: process.cwd(), timeout: 60000 }, async (errGit, outGit, errOutGit) => {
               const saidaGit = String(outGit || '') + String(errOutGit || '');
