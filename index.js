@@ -9546,29 +9546,54 @@ const emojiCmd = emojiDoComando(command);
             const tsUpd = Number(msg.messageTimestamp);
             if (tsUpd && Date.now() / 1000 - tsUpd > 60) break;
 
-            await sock.sendMessage(from, { text: '🔄 *Puxando atualizações do GitHub...*\n\nSó um instante! ⏳' }, { quoted: msg });
-            execFile('git', ['pull'], { cwd: process.cwd(), timeout: 60000 }, async (errGit, outGit, errOutGit) => {
-              const saidaGit = String(outGit || '') + String(errOutGit || '');
-              if (errGit) {
-                await sock.sendMessage(from, { text: '❌ *Erro no git pull!*\n\n' + saidaGit.slice(0, 500) }, { quoted: msg });
+            await sock.sendMessage(from, { text: '🔄 *Baixando atualização do GitHub...*\n\nSó um instante! ⏳' }, { quoted: msg });
+
+            (async () => {
+              const GITHUB_RAW = 'https://raw.githubusercontent.com/nicolascapitaogamer-source/shizuki-bot---MD/main/index.js';
+              let codigoNovo = '';
+              try {
+                const r = await fetch(GITHUB_RAW + '?t=' + Date.now(), { signal: AbortSignal.timeout(30000) });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                codigoNovo = await r.text();
+                if (!codigoNovo || codigoNovo.length < 5000) throw new Error('Resposta vazia');
+              } catch (e) {
+                await sock.sendMessage(from, { text: '❌ *Erro ao baixar do GitHub!*\n\n' + e.message }, { quoted: msg });
                 return;
               }
-              if (saidaGit.includes('Already up to date') || saidaGit.includes('Already up-to-date')) {
+
+              // Compara com o atual
+              const codigoAtual = fs.readFileSync('index.js', 'utf8');
+              if (codigoAtual.trim() === codigoNovo.trim()) {
                 await sock.sendMessage(from, { text: '✅ *Já tá atualizado!*\n\nNão tem nada novo no GitHub. 💜' }, { quoted: msg });
                 return;
               }
-              await sock.sendMessage(from, { text: '📥 *GitHub atualizado!*\n\n' + saidaGit.slice(0, 400) + '\n\n🔍 Validando o código...' }, { quoted: msg });
+
+              // Backup do antigo
+              fs.writeFileSync('index.js.bak', codigoAtual);
+
+              // Salva o novo
+              fs.writeFileSync('index.js', codigoNovo);
+              await sock.sendMessage(from, { text: '📥 *Código baixado!*\n\n🔍 Validando...' }, { quoted: msg });
+
               execFile(process.execPath, ['--check', 'index.js'], { timeout: 30000 }, async (errChk, stdoutChk, stderrChk) => {
               if (errChk) {
                 const detalhe = String(stderrChk || errChk.message).split('\n').slice(0, 6).join('\n').slice(0, 600);
                 await sock.sendMessage(from, { text: '❌ *Atualização cancelada!*\n\nEncontrei erro no código novo, então o bot continua rodando na versão antiga. Nada quebrou.\n\n```' + detalhe + '```' }, { quoted: msg });
                 return;
               }
+                if (errChk) {
+                  const detalhe = String(stderrChk || errChk.message).split('\n').slice(0, 6).join('\n').slice(0, 600);
+                  // Restaura o backup
+                  const bak = fs.readFileSync('index.js.bak', 'utf8');
+                  fs.writeFileSync('index.js', bak);
+                  await sock.sendMessage(from, { text: '❌ *Atualização cancelada!*\n\nEncontrei erro no código novo, restaurei o antigo.\n\n' + detalhe.slice(0, 400) }, { quoted: msg });
+                  return;
+                }
                 fs.writeFileSync(FILE_RESTART, JSON.stringify({ chat: from, texto: '✅ *Atualização concluída!*\n\nO bot está online com as novidades! 🚀💜' }));
                 await sock.sendMessage(from, { text: '🚀 *Código novo validado!*\n\nAtualizando agora... já volto com as novidades! ⏳' }, { quoted: msg });
                 setTimeout(() => process.exit(42), 1500);
               });
-            });
+              })();
           }
           break;
 
