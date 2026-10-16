@@ -3419,6 +3419,36 @@ function barraRank(pct) {
   return '▓'.repeat(cheios) + '░'.repeat(10 - cheios);
 }
 
+
+// ═══ !take — cria sticker animado com marca ═══
+function criarStickerTk(buffer, isVideo, pack, author) {
+  return new Promise((resolve, reject) => {
+    const id = Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const entrada = './tmp_tk_' + id + '.webp';
+    const saidaMp4 = './tmp_tk_' + id + '.mp4';
+
+    fs.writeFileSync(entrada, buffer);
+
+    execFile('ffmpeg', ['-y', '-i', entrada, '-movflags', 'faststart', '-pix_fmt', 'yuv420p', '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0', '-an', saidaMp4], { timeout: 60000 }, (err) => {
+      if (err) {
+        try { fs.unlinkSync(entrada); } catch (e) {}
+        try { fs.unlinkSync(saidaMp4); } catch (e) {}
+        return reject(err);
+      }
+      try {
+        const mp4Buf = fs.readFileSync(saidaMp4);
+        try { fs.unlinkSync(entrada); } catch (e) {}
+        try { fs.unlinkSync(saidaMp4); } catch (e) {}
+        criarSticker(mp4Buf, true, pack, author).then(resolve).catch(reject);
+      } catch (e) {
+        try { fs.unlinkSync(entrada); } catch (e) {}
+        try { fs.unlinkSync(saidaMp4); } catch (e) {}
+        reject(e);
+      }
+    });
+  });
+}
+
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
@@ -4442,7 +4472,8 @@ const emojiCmd = emojiDoComando(command);
               `💜 !apagar <qtd>\n` +
               `💜 !blacklist @pessoa\n` +
               `💜 !totag <texto>\n` +
-              `💜 !marcartodos <texto>\n\n` +
+              `💜 !marcartodos <texto>\n` +
+              `💜 !revelar\n\n` +
               `💜 !addlistanegra <numero>\n` +
               `💜 !tirardalista <numero>\n` +
               `💜 !listanegra\n` +
@@ -8980,9 +9011,123 @@ const emojiCmd = emojiDoComando(command);
               `💜 !instagram <link>\n` +
               `💜 !s (figurinha)\n` +
               `💜 !brat <texto>\n` +
-              `💜 !toimg\n\n` +
+              `💜 !toimg\n` +
+              `💜 !take\n\n` +
               `╰────────────────────╯`;
             await sock.sendMessage(from, { text: menuBaixar }, { quoted: msg });
+          }
+          break;
+
+        // ═══════════════════════════════════════════════
+        //       !take  +  !revelar
+        // ═══════════════════════════════════════════════
+
+        case 'take':
+          {
+            const ctxTk = msg.message.extendedTextMessage?.contextInfo;
+            const alvoTk = ctxTk?.quotedMessage || msg.message;
+            const figTk = alvoTk.stickerMessage;
+
+            if (!figTk) {
+              await sock.sendMessage(from, { text: '⚠️ Marque uma figurinha com *!take* pra colocar sua marca!' }, { quoted: msg });
+              break;
+            }
+
+            try {
+              const nomeAutor = pushName || 'Anônimo';
+              const streamTk = await downloadContentFromMessage(figTk, 'sticker');
+              let bufTk = Buffer.from([]);
+              for await (const chunk of streamTk) {
+                bufTk = Buffer.concat([bufTk, chunk]);
+              }
+
+              const packTk = '✨ Shizuki Bot - MD';
+              const autorTk = '👤 ' + nomeAutor;
+              const isAnimTk = figTk.isAnimated || false;
+
+              let novaFig;
+              if (isAnimTk) {
+                novaFig = await criarStickerTk(bufTk, true, packTk, autorTk);
+              } else {
+                novaFig = await criarSticker(bufTk, false, packTk, autorTk);
+              }
+
+              await sock.sendMessage(from, { sticker: novaFig }, { quoted: msg });
+              await sock.sendMessage(from, { text: '✅ Figurinha com sua marca: *' + nomeAutor + '*' }, { quoted: msg });
+            } catch (errTk) {
+              console.error('Erro no take:', errTk);
+              await sock.sendMessage(from, { text: '❌ Não consegui processar a figurinha.' }, { quoted: msg });
+            }
+          }
+          break;
+
+        case 'revelar':
+          {
+            // ═══ Só adm/líder/dono pode usar ═══
+            if (isGroup) {
+              const gmRev = await sock.groupMetadata(from);
+              const ehAdmRev = !!gmRev.participants.find(p => p.id === sender)?.admin;
+              if (!ehAdmRev && !isDono) {
+                await sock.sendMessage(from, {
+                  text: '╭━━━〔 🚫 𝐒𝐄𝐌 𝐏𝐄𝐑𝐌𝐈𝐒𝐒𝐀̃𝐎 🚫 〕━━━╮\n┃\n┃ 💔 Apenas *admins*, *líderes*\n┃    e o *dono* podem usar!\n┃\n╰─────────────────────────────╯'
+                }, { quoted: msg });
+                break;
+              }
+            }
+
+            const ctxRv = msg.message.extendedTextMessage?.contextInfo;
+            const alvoRv = ctxRv?.quotedMessage;
+            const msgOriginal = msg.message;
+
+            let midiaRv = null;
+            let tipoRv = null;
+
+            if (alvoRv) {
+              if (alvoRv.viewOnceMessageV2?.message?.imageMessage) { midiaRv = alvoRv.viewOnceMessageV2.message.imageMessage; tipoRv = 'image'; }
+              else if (alvoRv.viewOnceMessageV2?.message?.videoMessage) { midiaRv = alvoRv.viewOnceMessageV2.message.videoMessage; tipoRv = 'video'; }
+              else if (alvoRv.viewOnceMessage?.message?.imageMessage) { midiaRv = alvoRv.viewOnceMessage.message.imageMessage; tipoRv = 'image'; }
+              else if (alvoRv.viewOnceMessage?.message?.videoMessage) { midiaRv = alvoRv.viewOnceMessage.message.videoMessage; tipoRv = 'video'; }
+            }
+
+            if (!midiaRv) {
+              if (msgOriginal.viewOnceMessageV2?.message?.imageMessage) { midiaRv = msgOriginal.viewOnceMessageV2.message.imageMessage; tipoRv = 'image'; }
+              else if (msgOriginal.viewOnceMessageV2?.message?.videoMessage) { midiaRv = msgOriginal.viewOnceMessageV2.message.videoMessage; tipoRv = 'video'; }
+              else if (msgOriginal.viewOnceMessage?.message?.imageMessage) { midiaRv = msgOriginal.viewOnceMessage.message.imageMessage; tipoRv = 'image'; }
+              else if (msgOriginal.viewOnceMessage?.message?.videoMessage) { midiaRv = msgOriginal.viewOnceMessage.message.videoMessage; tipoRv = 'video'; }
+            }
+
+            if (!midiaRv) {
+              await sock.sendMessage(from, { text: '⚠️ Marque uma foto ou vídeo de *visualização única* com *!revelar*!' }, { quoted: msg });
+              break;
+            }
+
+            try {
+              const streamRv = await downloadContentFromMessage(midiaRv, tipoRv);
+              let bufRv = Buffer.from([]);
+              for await (const chunk of streamRv) {
+                bufRv = Buffer.concat([bufRv, chunk]);
+              }
+
+              const donoMidia = ctxRv?.participant || ctxRv?.mentionedJid?.[0] || sender;
+
+              let legendaRv = '╔══════════════════════════════╗\n' +
+                              '║  😈  𝐀𝐂𝐇𝐎𝐔  𝐐𝐔𝐄  𝐄𝐑𝐀  𝐒𝐄𝐆𝐑𝐄𝐃𝐎?  😈  ║\n' +
+                              '╚══════════════════════════════╝\n\n' +
+                              '🔥 *VISUALIZAÇÃO ÚNICA REVELADA!*\n\n' +
+                              '   👤 @' + donoMidia.split('@')[0] + '\n' +
+                              '   👁️ Revelada por @' + sender.split('@')[0] + '\n\n' +
+                              '   💬 _"Peguei tudo, safadinho(a)!"_\n\n' +
+                              '🌸 Shizuki Bot - MD 🌸';
+
+              if (tipoRv === 'image') {
+                await sock.sendMessage(from, { image: bufRv, caption: legendaRv, mentions: [donoMidia, sender] }, { quoted: msg });
+              } else {
+                await sock.sendMessage(from, { video: bufRv, caption: legendaRv, mentions: [donoMidia, sender] }, { quoted: msg });
+              }
+            } catch (errRv) {
+              console.error('Erro no revelar:', errRv);
+              await sock.sendMessage(from, { text: '❌ Não consegui revelar. Talvez já tenha sido vista?' }, { quoted: msg });
+            }
           }
           break;
 
