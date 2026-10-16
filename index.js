@@ -9041,17 +9041,28 @@ const emojiCmd = emojiDoComando(command);
                 bufTk = Buffer.concat([bufTk, chunk]);
               }
 
-              const packTk = '✨ Shizuki Bot - MD';
-              const autorTk = '👤 ' + nomeAutor;
+              const packTk = nomeAutor;
+              const autorTk = '';
 
               // ═══ Só usa ffmpeg se for ANIMADA de verdade ═══
               // Verifica pelo mimetype E pelo isAnimated
-              const isAnimTk = figTk.isAnimated === true || (figTk.mimetype && figTk.mimetype.includes('animated'));
+              // Detecta animação verificando o byte ANIM no header do webp
+              const isAnimTk = figTk.isAnimated === true ||
+                (bufTk && bufTk.length > 12 && bufTk.toString('ascii', 0, 4) === 'RIFF' && bufTk.toString('ascii', 8, 12) === 'WEBP' &&
+                 (bufTk.toString('ascii', 12, 16) === 'VP8X' || bufTk.toString('ascii', 12, 16) === 'VP8 ' || bufTk.toString('ascii', 12, 16) === 'VP8L') &&
+                 bufTk.includes(Buffer.from('ANIM')));
 
               let novaFig;
               if (isAnimTk) {
-                // Animada: usa ffmpeg
-                novaFig = await criarStickerTk(bufTk, true, packTk, autorTk);
+                // ═══ Animada: tenta usar ffmpeg, se falhar manda a original ═══
+                try {
+                  novaFig = await criarStickerTk(bufTk, true, packTk, autorTk);
+                } catch (eAnim) {
+                  console.log('⚠️ ffmpeg falhou pra animada, mandando sem marca:', eAnim.message);
+                  await sock.sendMessage(from, { sticker: bufTk }, { quoted: msg });
+                  await sock.sendMessage(from, { text: '⚠️ Figurinha animada: a host não tem suporte pra colocar marca. Enviei a original.' }, { quoted: msg });
+                  break;
+                }
               } else {
                 // Estática: só muda o metadata (SEM ffmpeg!)
                 novaFig = await criarSticker(bufTk, false, packTk, autorTk);
