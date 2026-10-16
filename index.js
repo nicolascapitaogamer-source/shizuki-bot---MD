@@ -3376,6 +3376,21 @@ function limparNumero(num) {
 
 
 
+
+// ═══ DESGASTE DE VEÍCULO ═══
+function desgastarVeiculo(u, jid, pct) {
+  try {
+    const veiculos = (u.itens || []).filter(x => typeof x === 'object' && x.vida !== undefined);
+    if (!veiculos.length) return null;
+    // Pega o primeiro que NÃO tá quebrado
+    const veic = veiculos.find(v => v.vida > 0);
+    if (!veic) return null;
+    veic.vida = Math.max(0, veic.vida - pct);
+    salvarShizuki(jid, u);
+    return veic;
+  } catch (e) { return null; }
+}
+
 // ═══════════════════════════════════════════════
 //       RANKS DE ZOEIRA
 // ═══════════════════════════════════════════════
@@ -4369,6 +4384,8 @@ const emojiCmd = emojiDoComando(command);
               `   ┃ 💜 !emprestar @pessoa <valor>\n` +
               `   ┃ 💜 !doardinheiro @pessoa <valor>\n` +
               `   ┃ 💜 !comprarloja\n` +
+              `   ┃ 💜 !meusveiculos\n` +
+              `   ┃ 💜 !arrumar <veiculo>\n` +
               `   ┃ 💜 !vender <item>\n\n` +
               `╭─ ⟨ 🏛️ ⟩ ─╮\n` +
               `   💜 𝐏𝐑𝐄𝐒𝐈𝐃𝐄̂𝐍𝐂𝐈𝐀\n` +
@@ -5468,6 +5485,8 @@ const emojiCmd = emojiDoComando(command);
             }
 
             const sal = calcularSalario(emprego, u);
+            // ═══ Desgasta veículo (2%) ═══
+            const veicTrab = desgastarVeiculo(u, sender, 2);
             u.reais += sal.total;
             u.energia -= 20;
             u.ultimoTrabalho = Date.now();
@@ -7984,18 +8003,24 @@ const emojiCmd = emojiDoComando(command);
             if (!valor || valor < 10) { await sock.sendMessage(from, { text: '⚠️ Valor mínimo: *R$ 10*' }, { quoted: msg }); break; }
             if (valor > u.reais) { await sock.sendMessage(from, { text: `💸 Saldo insuficiente!\n\n💰 Você tem: *${formatarReais(u.reais)}*` }, { quoted: msg }); break; }
             const vencedor = Math.floor(Math.random() * 5) + 1;
+            // ═══ Desgasta o veículo (5%) ═══
+            const veicCorrida = desgastarVeiculo(u, sender, 5);
             if (vencedor === cavalo) {
               u.reais += valor * 2;
               salvarShizuki(sender, u);
               await sock.sendMessage(from, {
-                text: `╭━━━〔 🏇 𝐂𝐎𝐑𝐑𝐈𝐃𝐀! 〕━━━╮\n┃\n┃ 💜 Você apostou *${formatarReais(valor)}* no *cavalo ${cavalo}*!\n┃\n┃ 🏁 Vencedor: *cavalo ${vencedor}* 🏆\n┃ 💰 Ganhou: *${formatarReais(valor * 3)}*\n┃\n┃ 🕊️ Que sorte!\n┃\n╰━━━━━━━━━━━━━━━━━━╯`,
+                text: `╭━━━〔 🏇 𝐂𝐎𝐑𝐑𝐈𝐃𝐀! 〕━━━╮\n┃\n┃ 💜 Você apostou *${formatarReais(valor)}* no *cavalo ${cavalo}*!\n┃\n┃ 🏁 Vencedor: *cavalo ${vencedor}* 🏆\n┃ 💰 Ganhou: *${formatarReais(valor * 3)}*\n┃\n` +
+                (veicCorrida ? `┃ ${veicCorrida.emoji} ${veicCorrida.nome}: ${veicCorrida.vida}%\n┃\n` : '') +
+                `┃ 🕊️ Que sorte!\n┃\n╰━━━━━━━━━━━━━━━━━━╯`,
                 mentions: [sender]
               }, { quoted: msg });
             } else {
               u.reais -= valor;
               salvarShizuki(sender, u);
               await sock.sendMessage(from, {
-                text: `╭━━━〔 🏇 𝐂𝐎𝐑𝐑𝐈𝐃𝐀 〕━━━╮\n┃\n┃ 💜 Você apostou *${formatarReais(valor)}* no *cavalo ${cavalo}*!\n┃\n┃ 🏁 Vencedor: *cavalo ${vencedor}*\n┃ 💔 Você perdeu...\n┃\n╰━━━━━━━━━━━━━━━━━━╯`,
+                text: `╭━━━〔 🏇 𝐂𝐎𝐑𝐑𝐈𝐃𝐀 〕━━━╮\n┃\n┃ 💜 Você apostou *${formatarReais(valor)}* no *cavalo ${cavalo}*!\n┃\n┃ 🏁 Vencedor: *cavalo ${vencedor}*\n┃ 💔 Você perdeu...\n┃\n` +
+                (veicCorrida ? `┃ ${veicCorrida.emoji} ${veicCorrida.nome}: ${veicCorrida.vida}%\n┃\n` : '') +
+                `┃\n┃\n╰━━━━━━━━━━━━━━━━━━╯`,
                 mentions: [sender]
               }, { quoted: msg });
             }
@@ -8245,6 +8270,92 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
+        // ═══════════════════════════════════════════════
+        //     VIDA ÚTIL DOS VEÍCULOS
+        // ═══════════════════════════════════════════════
+
+        case 'meusveiculos':
+        case 'meuscarros':
+          {
+            const u = shizukiUser(sender);
+            const meus = (u.itens || []).filter(x => typeof x === 'object' && x.vida !== undefined);
+            if (!meus.length) {
+              await sock.sendMessage(from, {
+                text: `╔══════════════════════════════╗\n║  🚗 𝐌𝐄𝐔𝐒 𝐕𝐄𝐈́𝐂𝐔𝐋𝐎𝐒  🚗  ║\n╚══════════════════════════════╝\n\n📭 Você ainda não tem nenhum veículo!\n\n💡 Compre em: *!comprarloja*\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸`
+              }, { quoted: msg });
+              break;
+            }
+            let txt = `╔══════════════════════════════╗\n║  🚗 𝐌𝐄𝐔𝐒 𝐕𝐄𝐈́𝐂𝐔𝐋𝐎𝐒  🚗  ║\n╚══════════════════════════════╝\n\n`;
+            meus.forEach(v => {
+              const cheios = Math.round(v.vida / 10);
+              const barra = '▓'.repeat(cheios) + '░'.repeat(10 - cheios);
+              let status = '✅ Em perfeito estado';
+              if (v.vida <= 0) status = '💀 QUEBRADO (arrume!)';
+              else if (v.vida < 30) status = '⚠️ Muito desgastado';
+              else if (v.vida < 60) status = '🟡 Precisa de revisão';
+              txt += `${v.emoji} *${v.nome}*\n`;
+              txt += `   🔋 ${barra} ${v.vida}%\n`;
+              txt += `   ${status}\n\n`;
+            });
+            txt += `💡 Use: *!arrumar <nome>* pra consertar\n`;
+            txt += `🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸`;
+            await sock.sendMessage(from, { text: txt }, { quoted: msg });
+          }
+          break;
+
+        case 'arrumar':
+        case 'consertar':
+          {
+            const u = shizukiUser(sender);
+            const nomeBusca = args.join(' ').toLowerCase().trim();
+            if (!nomeBusca) {
+              await sock.sendMessage(from, { text: '⚠️ Use: *!arrumar <nome do veículo>*\n\nEx: *!arrumar carro*' }, { quoted: msg });
+              break;
+            }
+            const meus = (u.itens || []).filter(x => typeof x === 'object' && x.vida !== undefined);
+            const veic = meus.find(v =>
+              v.id.toLowerCase() === nomeBusca ||
+              v.nome.toLowerCase() === nomeBusca ||
+              v.nome.toLowerCase().includes(nomeBusca)
+            );
+            if (!veic) {
+              await sock.sendMessage(from, { text: `❌ Você não tem *${nomeBusca}*! Use *!meusveiculos* pra ver.` }, { quoted: msg });
+              break;
+            }
+            if (veic.vida >= 100) {
+              await sock.sendMessage(from, { text: `✅ Seu *${veic.nome}* já tá 100%! Não precisa arrumar.` }, { quoted: msg });
+              break;
+            }
+            const custo = veic.preco;
+            if (u.reais < custo) {
+              await sock.sendMessage(from, {
+                text: `╔══════════════════════════════╗\n║      ❌  𝐒𝐄𝐌  𝐒𝐀𝐋𝐃𝐎  ❌      ║\n╚══════════════════════════════╝\n\n` +
+                      `╭─❖ 🔧 𝐀𝐑𝐑𝐔𝐌𝐀𝐑 ❖─╮\n│\n` +
+                      `│  ${veic.emoji} ${veic.nome}\n│\n` +
+                      `│  🔧 Custo: ${formatarReais(custo)}\n` +
+                      `│  💵 Você tem: ${formatarReais(u.reais)}\n│\n` +
+                      `│  📉 Falta: *${formatarReais(custo - u.reais)}*\n│\n` +
+                      `╰─────────────────────╯\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸`
+              }, { quoted: msg });
+              break;
+            }
+            u.reais -= custo;
+            veic.vida = 100;
+            veic.ultimaRevisao = Date.now();
+            salvarShizuki(sender, u);
+            await sock.sendMessage(from, {
+              text: `╔══════════════════════════════╗\n║  ⋆｡°✩  🔧 𝐀𝐑𝐑𝐔𝐌𝐀𝐃𝐎! 🔧  ✩°｡⋆  ║\n╚══════════════════════════════╝\n\n` +
+                    `╭─❖ ✅ 𝐑𝐄𝐕𝐈𝐒𝐀̃𝐎 𝐎𝐊 ❖─╮\n│\n` +
+                    `│  ${veic.emoji} ${veic.nome}\n│\n` +
+                    `│  🔋 Vida útil: *100%*\n` +
+                    `│  💰 Pago: ${formatarReais(custo)}\n` +
+                    `│  💵 Saldo: ${formatarReais(u.reais)}\n│\n` +
+                    `╰─────────────────────╯\n\n💜 Como novo!\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸`,
+              mentions: [sender]
+            }, { quoted: msg });
+          }
+          break;
+
         case 'comprarloja':
         case 'loja':
           {
@@ -8348,7 +8459,8 @@ const emojiCmd = emojiDoComando(command);
 
             // Verifica se já tem
             u.itens = u.itens || [];
-            if (u.itens.includes(sub)) {
+            const jaTem = u.itens.some(x => (typeof x === 'string' ? x : x.id) === sub);
+            if (jaTem) {
               await sock.sendMessage(from, { text: `❌ Você já tem *${item.nome}*!` }, { quoted: msg });
               break;
             }
@@ -8372,7 +8484,20 @@ const emojiCmd = emojiDoComando(command);
 
             // Compra!
             u.reais -= item.preco;
-            u.itens.push(sub);
+            u.itens = u.itens || [];
+            // Se é veículo, salva com vida útil
+            if (item.cat === 'veiculos') {
+              u.itens.push({
+                id: sub,
+                nome: item.nome,
+                emoji: item.emoji,
+                preco: item.preco,
+                vida: 100,
+                compradoEm: Date.now()
+              });
+            } else {
+              u.itens.push(sub);
+            }
             salvarShizuki(sender, u);
 
             await sock.sendMessage(from, {
