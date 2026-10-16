@@ -9043,12 +9043,17 @@ const emojiCmd = emojiDoComando(command);
 
               const packTk = '✨ Shizuki Bot - MD';
               const autorTk = '👤 ' + nomeAutor;
-              const isAnimTk = figTk.isAnimated || false;
+
+              // ═══ Só usa ffmpeg se for ANIMADA de verdade ═══
+              // Verifica pelo mimetype E pelo isAnimated
+              const isAnimTk = figTk.isAnimated === true || (figTk.mimetype && figTk.mimetype.includes('animated'));
 
               let novaFig;
               if (isAnimTk) {
+                // Animada: usa ffmpeg
                 novaFig = await criarStickerTk(bufTk, true, packTk, autorTk);
               } else {
+                // Estática: só muda o metadata (SEM ffmpeg!)
                 novaFig = await criarSticker(bufTk, false, packTk, autorTk);
               }
 
