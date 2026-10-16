@@ -9549,7 +9549,7 @@ const emojiCmd = emojiDoComando(command);
             await sock.sendMessage(from, { text: '🔄 *Baixando atualização do GitHub...*\n\nSó um instante! ⏳' }, { quoted: msg });
 
             (async () => {
-              const GITHUB_RAW = 'https://raw.githubusercontent.com/nicolascapitaogamer-source/shizuki-bot---MD/principal/index.js';
+              const GITHUB_RAW = 'https://raw.githubusercontent.com/nicolascapitaogamer-source/shizuki-bot---MD/main/index.js';
               let codigoNovo = '';
               try {
                 const r = await fetch(GITHUB_RAW + '?t=' + Date.now(), { signal: AbortSignal.timeout(30000) });
