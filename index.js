@@ -3420,33 +3420,25 @@ function barraRank(pct) {
 }
 
 
-// ═══ !take — cria sticker animado com marca ═══
-function criarStickerTk(buffer, isVideo, pack, author) {
-  return new Promise((resolve, reject) => {
-    const id = Date.now() + '_' + Math.floor(Math.random() * 1000);
-    const entrada = './tmp_tk_' + id + '.webp';
-    const saidaMp4 = './tmp_tk_' + id + '.mp4';
+// ═══ !take — cria sticker animado com marca (SEM ffmpeg) ═══
+async function criarStickerTk(buffer, isVideo, pack, author) {
+  // Aplica metadata EXIF direto no webp (funciona pra estático e animado)
+  const json = {
+    'sticker-pack-id': 'shizuki-bot',
+    'sticker-pack-name': pack,
+    'sticker-pack-publisher': author,
+    emojis: ['💜']
+  };
+  const exifAttr = Buffer.from([0x49,0x49,0x2A,0x00,0x08,0x00,0x00,0x00,0x01,0x00,0x41,0x57,0x07,0x00,0x00,0x00,0x00,0x00,0x16,0x00,0x00,0x00]);
+  const jsonBuff = Buffer.from(JSON.stringify(json), 'utf-8');
+  const exif = Buffer.concat([exifAttr, jsonBuff]);
+  exif.writeUIntLE(jsonBuff.length, 14, 4);
 
-    fs.writeFileSync(entrada, buffer);
-
-    execFile('ffmpeg', ['-y', '-i', entrada, '-movflags', 'faststart', '-pix_fmt', 'yuv420p', '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=black@0', '-an', saidaMp4], { timeout: 60000 }, (err) => {
-      if (err) {
-        try { fs.unlinkSync(entrada); } catch (e) {}
-        try { fs.unlinkSync(saidaMp4); } catch (e) {}
-        return reject(err);
-      }
-      try {
-        const mp4Buf = fs.readFileSync(saidaMp4);
-        try { fs.unlinkSync(entrada); } catch (e) {}
-        try { fs.unlinkSync(saidaMp4); } catch (e) {}
-        criarSticker(mp4Buf, true, pack, author).then(resolve).catch(reject);
-      } catch (e) {
-        try { fs.unlinkSync(entrada); } catch (e) {}
-        try { fs.unlinkSync(saidaMp4); } catch (e) {}
-        reject(e);
-      }
-    });
-  });
+  const img = new webp.Image();
+  await img.load(buffer);
+  img.exif = exif;
+  const final = await img.save(null);
+  return final;
 }
 
 async function connectToWhatsApp() {
@@ -9053,19 +9045,13 @@ const emojiCmd = emojiDoComando(command);
                  bufTk.includes(Buffer.from('ANIM')));
 
               let novaFig;
-              if (isAnimTk) {
-                // ═══ Animada: tenta usar ffmpeg, se falhar manda a original ═══
-                try {
-                  novaFig = await criarStickerTk(bufTk, true, packTk, autorTk);
-                } catch (eAnim) {
-                  console.log('⚠️ ffmpeg falhou pra animada, mandando sem marca:', eAnim.message);
-                  await sock.sendMessage(from, { sticker: bufTk }, { quoted: msg });
-                  await sock.sendMessage(from, { text: '⚠️ Figurinha animada: a host não tem suporte pra colocar marca. Enviei a original.' }, { quoted: msg });
-                  break;
-                }
-              } else {
-                // Estática: só muda o metadata (SEM ffmpeg!)
-                novaFig = await criarSticker(bufTk, false, packTk, autorTk);
+              // ═══ Aplica marca em qualquer figurinha (estática ou animada) SEM ffmpeg ═══
+              try {
+                novaFig = await criarStickerTk(bufTk, isAnimTk, packTk, autorTk);
+              } catch (eMarca) {
+                console.log('Erro ao aplicar marca:', eMarca.message);
+                // Se falhar, tenta usar criarSticker normal
+                novaFig = await criarSticker(bufTk, isAnimTk, packTk, autorTk);
               }
 
               await sock.sendMessage(from, { sticker: novaFig }, { quoted: msg });
