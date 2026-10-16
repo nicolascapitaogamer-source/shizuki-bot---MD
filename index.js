@@ -3,7 +3,8 @@ import {
   useMultiFileAuthState, 
   DisconnectReason, 
   fetchLatestBaileysVersion,
-  downloadContentFromMessage 
+  downloadContentFromMessage,
+  normalizeMessageContent 
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
@@ -9084,18 +9085,21 @@ const emojiCmd = emojiDoComando(command);
             let midiaRv = null;
             let tipoRv = null;
 
-            if (alvoRv) {
-              if (alvoRv.viewOnceMessageV2?.message?.imageMessage) { midiaRv = alvoRv.viewOnceMessageV2.message.imageMessage; tipoRv = 'image'; }
-              else if (alvoRv.viewOnceMessageV2?.message?.videoMessage) { midiaRv = alvoRv.viewOnceMessageV2.message.videoMessage; tipoRv = 'video'; }
-              else if (alvoRv.viewOnceMessage?.message?.imageMessage) { midiaRv = alvoRv.viewOnceMessage.message.imageMessage; tipoRv = 'image'; }
-              else if (alvoRv.viewOnceMessage?.message?.videoMessage) { midiaRv = alvoRv.viewOnceMessage.message.videoMessage; tipoRv = 'video'; }
-            }
-
-            if (!midiaRv) {
-              if (msgOriginal.viewOnceMessageV2?.message?.imageMessage) { midiaRv = msgOriginal.viewOnceMessageV2.message.imageMessage; tipoRv = 'image'; }
-              else if (msgOriginal.viewOnceMessageV2?.message?.videoMessage) { midiaRv = msgOriginal.viewOnceMessageV2.message.videoMessage; tipoRv = 'video'; }
-              else if (msgOriginal.viewOnceMessage?.message?.imageMessage) { midiaRv = msgOriginal.viewOnceMessage.message.imageMessage; tipoRv = 'image'; }
-              else if (msgOriginal.viewOnceMessage?.message?.videoMessage) { midiaRv = msgOriginal.viewOnceMessage.message.videoMessage; tipoRv = 'video'; }
+            // ═══ USA normalizeMessageContent pra desembrulhar ═══
+            const fontes = [alvoRv, msgOriginal].filter(Boolean);
+            for (const fonte of fontes) {
+              try {
+                const normalizado = normalizeMessageContent(fonte);
+                if (normalizado?.imageMessage) { midiaRv = normalizado.imageMessage; tipoRv = 'image'; break; }
+                if (normalizado?.videoMessage) { midiaRv = normalizado.videoMessage; tipoRv = 'video'; break; }
+                // Fallback: tenta pelo viewOnce direto
+                if (fonte?.viewOnceMessageV2?.message?.imageMessage) { midiaRv = fonte.viewOnceMessageV2.message.imageMessage; tipoRv = 'image'; break; }
+                if (fonte?.viewOnceMessageV2?.message?.videoMessage) { midiaRv = fonte.viewOnceMessageV2.message.videoMessage; tipoRv = 'video'; break; }
+                if (fonte?.viewOnceMessage?.message?.imageMessage) { midiaRv = fonte.viewOnceMessage.message.imageMessage; tipoRv = 'image'; break; }
+                if (fonte?.viewOnceMessage?.message?.videoMessage) { midiaRv = fonte.viewOnceMessage.message.videoMessage; tipoRv = 'video'; break; }
+              } catch (eN) {
+                console.log('Erro normalize:', eN.message);
+              }
             }
 
             if (!midiaRv) {
