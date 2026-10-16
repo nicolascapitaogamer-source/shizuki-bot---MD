@@ -4466,7 +4466,7 @@ const emojiCmd = emojiDoComando(command);
               `💜 !blacklist @pessoa\n` +
               `💜 !totag <texto>\n` +
               `💜 !marcartodos <texto>\n` +
-              `💜 !revelar\n\n` +
+              `💜 !revelar\n` +
               `💜 !addlistanegra <numero>\n` +
               `💜 !tirardalista <numero>\n` +
               `💜 !listanegra\n` +
