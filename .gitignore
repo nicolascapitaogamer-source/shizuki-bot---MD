@@ -19,14 +19,11 @@ index.js.antes*
 index.js.ANTES*
 index.js.save*
 *.bak
+*.save
 
 # Temporários
 tmp_*
 *.webp
 
-# Pastas de dados
-rank_imagens/
-menu_media.jpg
-welcome_media.jpg
+# Áudio (muito pesado)
 menu_audio.mp3
-*.save
