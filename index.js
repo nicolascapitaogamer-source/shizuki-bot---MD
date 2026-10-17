@@ -7004,6 +7004,167 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
+        case 'topiratas':
+        case 'topirata':
+          {
+            const db = carregarJSON(FILE_PIRATA);
+            const lista = Object.entries(db).map(([jid, u]) => ({ jid, ...u })).sort((a, b) => b.nivel - a.nivel).slice(0, 10);
+            if (!lista.length) { await sock.sendMessage(from, { text: 'Ninguém jogou ainda!' }, { quoted: msg }); break; }
+            let txt = '╔══════════════════════════════╗\n║   🏆  𝐓𝐎𝐏  𝐏𝐈𝐑𝐀𝐓𝐀𝐒  🏆            ║\n╚══════════════════════════════╝\n\n';
+            const meds = ['🥇', '🥈', '🥉'];
+            const menc = [];
+            lista.forEach((u, i) => {
+              menc.push(u.jid);
+              txt += (meds[i] || (i + 1) + '️⃣') + ' ' + u.nivel + ' Nv. - @' + u.jid.split('@')[0] + '\n';
+            });
+            txt += '\n🌸 Shizuki Bot - MD 🌸';
+            await sock.sendMessage(from, { text: txt, mentions: menc }, { quoted: msg });
+          }
+          break;
+
+        case 'treinar':
+          {
+            const u = pirataUser(sender);
+            if (u.energia < 15) { await sock.sendMessage(from, { text: '⚡ Sem energia! Use !descansar.' }, { quoted: msg }); break; }
+            u.energia -= 15; u.xp += 30; u.forca += 1;
+            let subiu = false;
+            while (u.xp >= xpProximoNivel(u.nivel)) { u.xp -= xpProximoNivel(u.nivel); u.nivel++; u.hpMax += 10; u.hp = u.hpMax; subiu = true; }
+            salvarPirata(sender, u);
+            await sock.sendMessage(from, { text: '🏋️ Você treinou!\n⭐ +30 XP\n💪 +1 Força\n⚡ -15 Energia' + (subiu ? '\n🎉 Subiu de nível!' : '') + '\n\n🌸 Shizuki Bot - MD 🌸' }, { quoted: msg });
+          }
+          break;
+
+        case 'girarfruta':
+          {
+            const u = pirataUser(sender);
+            if (u.fruta) { await sock.sendMessage(from, { text: '🍇 Você já tem uma fruta! Use !descartarfruta.' }, { quoted: msg }); break; }
+            if (u.ouro < 200) { await sock.sendMessage(from, { text: '💰 Precisa de 200 berries!' }, { quoted: msg }); break; }
+            u.ouro -= 200;
+            const sorteio = Math.random() * 100; let acum = 0; let fruta = null;
+            const ord = [...FRUTAS].sort((a,b)=>a.chance-b.chance);
+            for (const f of ord) { acum += f.chance; if (sorteio <= acum) { fruta = f; break; } }
+            if (!fruta) fruta = FRUTAS[0];
+            u.fruta = fruta.id; salvarPirata(sender, u);
+            await sock.sendMessage(from, { text: '🎰 Rolou a fruta!\n🍇 ' + fruta.nome + ' (' + fruta.raridade + ')\n💰 -200 berries\n\n🌸 Shizuki Bot - MD 🌸' }, { quoted: msg });
+          }
+          break;
+
+        case 'descartarfruta':
+          { const u = pirataUser(sender); u.fruta = null; salvarPirata(sender, u); await sock.sendMessage(from, { text: '🗑️ Fruta descartada!' }, { quoted: msg }); }
+          break;
+
+        case 'girarhaki':
+          {
+            const u = pirataUser(sender);
+            if (u.nivel < 20) { await sock.sendMessage(from, { text: '🔒 Nível 20+ necessário!' }, { quoted: msg }); break; }
+            if (u.haki) { await sock.sendMessage(from, { text: 'Você já tem um Haki!' }, { quoted: msg }); break; }
+            const sorteio = Math.random() * 100; let acum = 0; let haki = HAKIS[0];
+            for (const h of HAKIS) { acum += h.chance; if (sorteio <= acum) { haki = h; break; } }
+            u.haki = haki.id; salvarPirata(sender, u);
+            await sock.sendMessage(from, { text: '🎰 Haki despertado: ' + haki.nome + '!\n\n🌸 Shizuki Bot - MD 🌸' }, { quoted: msg });
+          }
+          break;
+
+        case 'girarraça':
+          {
+            const u = pirataUser(sender);
+            if (u.nivel < 60) { await sock.sendMessage(from, { text: '🔒 Nível 60+ necessário!' }, { quoted: msg }); break; }
+            if (u.raca) { await sock.sendMessage(from, { text: 'Você já tem uma raça!' }, { quoted: msg }); break; }
+            if (u.ouro < 800) { await sock.sendMessage(from, { text: '💰 Precisa de 800 berries!' }, { quoted: msg }); break; }
+            u.ouro -= 800; const raca = RACAS[Math.floor(Math.random() * RACAS.length)];
+            u.raca = raca.id; salvarPirata(sender, u);
+            await sock.sendMessage(from, { text: '🧬 Raça sorteada: ' + raca.nome + '!\n💰 -800 berries\n\n🌸 Shizuki Bot - MD 🌸' }, { quoted: msg });
+          }
+          break;
+
+        case 'lojabarcos':
+          {
+            const u = pirataUser(sender);
+            let txt = '╔══════════════════════════════╗\n║   ⛵  𝐋𝐎𝐉𝐀  𝐃𝐄  𝐁𝐀𝐑𝐂𝐎𝐒  ⛵        ║\n╚══════════════════════════════╝\n\n💰 Saldo: ' + u.ouro + '\n\n';
+            for (const [id, b] of Object.entries(BARCOS)) { txt += b.emoji + ' ' + b.nome + ' - ' + b.preco + ' berries (+' + b.energia + ' energia)\n'; }
+            txt += '\n💡 Use: !comprarbarco <nome>\n\n🌸 Shizuki Bot - MD 🌸';
+            await sock.sendMessage(from, { text: txt }, { quoted: msg });
+          }
+          break;
+
+        case 'comprarbarco':
+          {
+            const u = pirataUser(sender); const nome = args.join(' ').trim().toLowerCase();
+            const b = Object.values(BARCOS).find(x => x.nome.toLowerCase().includes(nome));
+            if (!b) { await sock.sendMessage(from, { text: '❌ Barco não encontrado! Use !lojabarcos' }, { quoted: msg }); break; }
+            if (u.ouro < b.preco) { await sock.sendMessage(from, { text: '💰 Precisa de ' + b.preco + ' berries!' }, { quoted: msg }); break; }
+            u.ouro -= b.preco; u.barco = b.nome; u.energiaMax += b.energia; salvarPirata(sender, u);
+            await sock.sendMessage(from, { text: '⛵ Você comprou um ' + b.nome + '!\n💰 -' + b.preco + ' berries\n\n🌸 Shizuki Bot - MD 🌸' }, { quoted: msg });
+          }
+          break;
+
+        case 'recrutar':
+          {
+            const u = pirataUser(sender);
+            if (u.tripulacao.length >= 8) { await sock.sendMessage(from, { text: '⚓ Tripulação cheia (8/8)!' }, { quoted: msg }); break; }
+            const nome = args.join(' ').trim().toLowerCase();
+            if (!nome) {
+              let txt = '⚓ *RECRUTAR*\n\nDisponíveis:\n';
+              const disp = TRIPULANTES.slice(0, 5); // Mostra 5
+              disp.forEach(t => { txt += t.emoji + ' ' + t.nome + ' (Nv.' + t.nivel + ') - ' + t.custo + ' berries [' + t.chance + '%]\n'; });
+              txt += '\n💡 Use: !recrutar <nome>\n\n🌸 Shizuki Bot - MD 🌸';
+              await sock.sendMessage(from, { text: txt }, { quoted: msg }); break;
+            }
+            const t = TRIPULANTES.find(x => x.nome.toLowerCase().includes(nome));
+            if (!t) { await sock.sendMessage(from, { text: '❌ Não encontrado!' }, { quoted: msg }); break; }
+            if (u.ouro < t.custo) { await sock.sendMessage(from, { text: '💰 Precisa de ' + t.custo + ' berries!' }, { quoted: msg }); break; }
+            u.ouro -= t.custo;
+            if (Math.random() * 100 <= t.chance) {
+              u.tripulacao.push({ id: t.id }); salvarPirata(sender, u);
+              await sock.sendMessage(from, { text: '🎉 ' + t.nome + ' recrutado(a)!\n\n🌸 Shizuki Bot - MD 🌸' }, { quoted: msg });
+            } else {
+              salvarPirata(sender, u); await sock.sendMessage(from, { text: '💔 ' + t.nome + ' recusou!\n💰 Perdeu ' + t.custo + ' berries.\n\n🌸 Shizuki Bot - MD 🌸' }, { quoted: msg });
+            }
+          }
+          break;
+
+        case 'meustripulantes':
+          {
+            const u = pirataUser(sender);
+            if (!u.tripulacao.length) { await sock.sendMessage(from, { text: '💭 Nenhum tripulante.' }, { quoted: msg }); break; }
+            let txt = '⚓ *TRIPULAÇÃO* (' + u.tripulacao.length + '/8)\n\n';
+            u.tripulacao.forEach((x, i) => { const t = TRIPULANTES.find(y => y.id === x.id); txt += (i+1) + '. ' + (t ? t.emoji + ' ' + t.nome : x.id) + '\n'; });
+            txt += '\n🌸 Shizuki Bot - MD 🌸'; await sock.sendMessage(from, { text: txt }, { quoted: msg });
+          }
+          break;
+
+        case 'comprar':
+          {
+            const u = pirataUser(sender); const itemNome = args.join(' ').trim().toLowerCase();
+            const it = Object.values(ITENS_LOJA).find(x => x.nome.toLowerCase().includes(itemNome));
+            if (!it) { await sock.sendMessage(from, { text: '❌ Item inválido! Use !loja' }, { quoted: msg }); break; }
+            if (u.ouro < it.preco) { await sock.sendMessage(from, { text: '💰 Sem saldo!' }, { quoted: msg }); break; }
+            u.ouro -= it.preco;
+            if (it.tipo === 'arma') u.armaEquipada = Object.keys(ITENS_LOJA).find(k => ITENS_LOJA[k].nome === it.nome);
+            else if (it.tipo === 'armadura') u.armaduraEquipada = Object.keys(ITENS_LOJA).find(k => ITENS_LOJA[k].nome === it.nome);
+            salvarPirata(sender, u);
+            await sock.sendMessage(from, { text: '🛒 Comprou ' + it.nome + '!\n\n🌸 Shizuki Bot - MD 🌸' }, { quoted: msg });
+          }
+          break;
+
+        case 'loja':
+          {
+            let txt = '🛒 *LOJA*\n\n';
+            for (const it of Object.values(ITENS_LOJA)) { txt += it.emoji + ' ' + it.nome + ' - ' + it.preco + '\n'; }
+            txt += '\n💡 !comprar <item>\n\n🌸 Shizuki Bot - MD 🌸';
+            await sock.sendMessage(from, { text: txt }, { quoted: msg });
+          }
+          break;
+
+        case 'procurado':
+        case 'bounty':
+          {
+            const u = pirataUser(sender);
+            let txt = '💀 *PROCURADO*\n\n👤 ' + pushName + '\n💀 Bounty: ' + fmtNum(u.reputacao) + '\n\n🌸 Shizuki Bot - MD 🌸';
+            await sock.sendMessage(from, { text: txt }, { quoted: msg });
+          }
+          break;
+
         case 'play':
           {
             const buscaP = args.join(' ').trim();
