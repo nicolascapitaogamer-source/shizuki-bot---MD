@@ -10311,6 +10311,16 @@ const emojiCmd = emojiDoComando(command);
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 codigoNovo = await r.text();
                 if (!codigoNovo || codigoNovo.length < 5000) throw new Error('Resposta vazia');
+                
+                // BAIXA O PIRATA_SYSTEM.JS TAMBEM
+                try {
+                  const urlPirata = GITHUB_RAW.replace('index.js', 'pirata_system.js') + '?t=' + Date.now();
+                  const r2 = await fetch(urlPirata, { signal: AbortSignal.timeout(30000) });
+                  if (r2.ok) {
+                    const codePirata = await r2.text();
+                    if (codePirata.length > 1000) fs.writeFileSync('pirata_system.js', codePirata);
+                  }
+                } catch (e) { console.log('Erro ao baixar pirata:', e.message); }
               } catch (e) {
                 await sock.sendMessage(from, { text: '❌ *Erro ao baixar do GitHub!*\n\n' + e.message }, { quoted: msg });
                 return;
