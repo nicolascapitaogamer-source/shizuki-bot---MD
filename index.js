@@ -4187,7 +4187,7 @@ async function connectToWhatsApp() {
         'fotoboasvindas', 'audiomenu', 'setaudiomenu', 'ping', 'criador', 'owner', 
         'ship', 'corno', 'gay', 'gostosa', 'gostoso', 'feio', 'bonito', 'bonita', 'rico', 'pobre', 'gado', 'safado', 'safada', 'chato', 'louco', 'louca', 'sortudo', 'sortuda', 'azarado', 'azarada', 'pau', 'bunda', 'chifre', 'inteligente', 'burro', 'burra', 'tiktok', 'ttk', 'beijo', 'beijar', 'abraço', 'abraco', 'abracar', 'abraçar', 'matar', 'kill', 
         'adivinhe', 'perfil', 'streak', 'sequencia', 'mute', 'mutar', 'unmute', 'desmutar', 'adv', 'advertir', 
-        'rmadv', 'unadv', 'remadv', 'ban', 'kick', 'boasvindas', 's', 'sticker', 'figurinha', 'brat', 'totag', 'hidetag', 'admins', 'adms', 'menubaixar', 'baixar', 'balada', 'casas', 'lojacasa', 'comprarcasa', 'alugarcasa', 'minhacasa', 'ativareventos', 'desativareventos', 'aniversario', 'meuaniversario', 'trocarpokebola', 'porcentagem', 'darvip', 'rmvip', 'listarvip', 'vipinfo', 'bauvip', 'baúvip', 'apelido', 'rmapelido', 'menuvip', 'vip', 'instagram', 'insta', 'playvideo', 'play_video', 'playmp4', 'meupirata', 'pirata', 'mapa', 'ilha', 'navegar', 'lutar', 'boss', 'menupirata'
+        'rmadv', 'unadv', 'remadv', 'ban', 'kick', 'boasvindas', 's', 'sticker', 'figurinha', 'brat', 'totag', 'hidetag', 'admins', 'adms', 'menubaixar', 'baixar', 'balada', 'casas', 'lojacasa', 'comprarcasa', 'alugarcasa', 'minhacasa', 'ativareventos', 'desativareventos', 'aniversario', 'meuaniversario', 'trocarpokebola', 'porcentagem', 'darvip', 'rmvip', 'listarvip', 'vipinfo', 'bauvip', 'baúvip', 'apelido', 'rmapelido', 'menuvip', 'vip', 'instagram', 'insta', 'playvideo', 'play_video', 'playmp4', 'meupirata', 'pirata', 'mapa', 'ilha', 'navegar', 'lutar', 'boss', 'menupirata', 'meupirata', 'pirata', 'mapa', 'ilha', 'navegar', 'lutar', 'boss', 'treinar', 'girarfruta', 'minhafruta', 'descartarfruta', 'girarhaki', 'girarraça', 'girarraça', 'recrutar', 'meustripulantes', 'treinartripulacao', 'demitir', 'loja', 'lojabarcos', 'comprar', 'comprarbarco', 'inventario', 'vender', 'equipar', 'descansar', 'comer', 'meditar', 'topiratas', 'procurado', 'bounty', 'marinha'
       ];
 
             if (command === 'trocar_dono' && !isDonoReal) {
@@ -4296,6 +4296,7 @@ const emojiCmd = emojiDoComando(command);
               '   ♡ !menudono\n' +
               '   ♡ !menuadm\n' +
               '   ♡ !menushizuki\n' +
+              '   ♡ !menupirata\n' +
               '   ♡ !menubrincadeiras\n' +
               '   ♡ !menupokemon\n' +
               '   ♡ !menuvip\n' +
@@ -5503,7 +5504,7 @@ const emojiCmd = emojiDoComando(command);
             }
             const emprego = acharEmprego(u.emprego);
             if (u.energia < 20) {
-              await sock.sendMessage(from, { text: '😴 Você está exausto!\n\nUse *!dormir* pra recuperar energia.' }, { quoted: msg });
+              await sock.sendMessage(from, { text: '😴 Você está exausto!\n\nUse *!descansar pra recuperar energia.' }, { quoted: msg });
               break;
             }
             const cdTrabalho = (typeof eVIP === "function" && eVIP(sender)) ? 5 * 60 * 1000 : SHIZUKI_DATA.cooldownTrabalho; // BONUS VIP
@@ -6704,7 +6705,7 @@ const emojiCmd = emojiDoComando(command);
             const iniNome = ilha.inimigos.find(i => i.toLowerCase().includes(alvoNome));
             if (!iniNome) { await sock.sendMessage(from, { text: '❌ Inimigo não encontrado nessa ilha!' }, { quoted: msg }); break; }
             if (u.energia < 10) { await sock.sendMessage(from, { text: '⚡ Energia insuficiente! Use *!dormir* ou *!meditar*.' }, { quoted: msg }); break; }
-            if (u.hp <= 0) { await sock.sendMessage(from, { text: '💀 Você está morto! Use *!dormir* pra recuperar HP.' }, { quoted: msg }); break; }
+            if (u.hp <= 0) { await sock.sendMessage(from, { text: '💀 Você está morto! Use *!descansar pra recuperar HP.' }, { quoted: msg }); break; }
 
             // Stats do inimigo (baseado na ilha)
             const nivelIni = ilha.nivelMin + Math.floor(Math.random() * 5);
@@ -6816,7 +6817,7 @@ const emojiCmd = emojiDoComando(command);
                                '│  💔 Você perdeu pra *' + iniNome + '*!\n' +
                                '│  📉 -' + perdaRep + ' procurado\n' +
                                '│  💰 -' + perdaOuro + ' berries\n';
-              if (morreu) txtDerrota += '│  💀 *VOCÊ MORREU!*\n│  💡 Use *!dormir* pra recuperar\n';
+              if (morreu) txtDerrota += '│  💀 *VOCÊ MORREU!*\n│  💡 Use *!descansar pra recuperar\n';
               else txtDerrota += '│  ❤️ HP restante: ' + u.hp + '/' + u.hpMax + '\n';
               txtDerrota += '│\n╰─────────────────────╯\n\n';
               txtDerrota += '🌸 Shizuki Bot - MD 🌸';
@@ -6832,7 +6833,7 @@ const emojiCmd = emojiDoComando(command);
             const ilha = acharIlha(u.ilhaAtual);
             if (!ilha) { await sock.sendMessage(from, { text: '❌ Ilha inválida!' }, { quoted: msg }); break; }
             if (u.energia < 30) { await sock.sendMessage(from, { text: '⚡ Precisa de 30 energia pro boss! Use *!dormir*.' }, { quoted: msg }); break; }
-            if (u.hp <= 0) { await sock.sendMessage(from, { text: '💀 Você está morto! Use *!dormir* pra recuperar HP.' }, { quoted: msg }); break; }
+            if (u.hp <= 0) { await sock.sendMessage(from, { text: '💀 Você está morto! Use *!descansar pra recuperar HP.' }, { quoted: msg }); break; }
             if (u.bossesDerrotados && u.bossesDerrotados.includes(ilha.id)) {
               await sock.sendMessage(from, { text: '👑 Você já derrotou o boss *' + ilha.boss + '* dessa ilha!' }, { quoted: msg });
               break;
@@ -6935,7 +6936,7 @@ const emojiCmd = emojiDoComando(command);
                                '│  💔 Você perdeu pro boss *' + boss.nome + '*!\n' +
                                '│  📉 -' + perdaRep + ' procurado\n' +
                                '│  💰 -' + perdaOuro + ' berries\n';
-              if (morreu) txtDerrota += '│  💀 *VOCÊ MORREU!*\n│  💡 Use *!dormir* pra recuperar\n';
+              if (morreu) txtDerrota += '│  💀 *VOCÊ MORREU!*\n│  💡 Use *!descansar pra recuperar\n';
               txtDerrota += '│\n╰─────────────────────╯\n\n';
               txtDerrota += '🌸 Shizuki Bot - MD 🌸';
 
