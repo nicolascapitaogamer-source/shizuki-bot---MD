@@ -14,6 +14,11 @@ import os from 'os';
 import { execFile } from 'child_process';
 import webp from 'node-webpmux';
 import apiBronxys from './api_bronxys.js';
+import {
+  FILE_PIRATA, ILHAS, ITENS_LOJA, BARCOS, FRUTAS, HAKIS, RACAS, TRIPULANTES,
+  xpProximoNivel, tituloNivel, pirataUser, salvarPirata,
+  calcularDanoPirata, acharIlha, fmtNum, barraProgresso
+} from './pirata_system.js';
 
 const PREFIXO = '!';
 const NUMERO_CRIADOR = '5519988953961';
@@ -4182,7 +4187,7 @@ async function connectToWhatsApp() {
         'fotoboasvindas', 'audiomenu', 'setaudiomenu', 'ping', 'criador', 'owner', 
         'ship', 'corno', 'gay', 'gostosa', 'gostoso', 'feio', 'bonito', 'bonita', 'rico', 'pobre', 'gado', 'safado', 'safada', 'chato', 'louco', 'louca', 'sortudo', 'sortuda', 'azarado', 'azarada', 'pau', 'bunda', 'chifre', 'inteligente', 'burro', 'burra', 'tiktok', 'ttk', 'beijo', 'beijar', 'abraço', 'abraco', 'abracar', 'abraçar', 'matar', 'kill', 
         'adivinhe', 'perfil', 'streak', 'sequencia', 'mute', 'mutar', 'unmute', 'desmutar', 'adv', 'advertir', 
-        'rmadv', 'unadv', 'remadv', 'ban', 'kick', 'boasvindas', 's', 'sticker', 'figurinha', 'brat', 'totag', 'hidetag', 'admins', 'adms', 'menubaixar', 'baixar', 'balada', 'casas', 'lojacasa', 'comprarcasa', 'alugarcasa', 'minhacasa', 'ativareventos', 'desativareventos', 'aniversario', 'meuaniversario', 'trocarpokebola', 'porcentagem', 'darvip', 'rmvip', 'listarvip', 'vipinfo', 'bauvip', 'baúvip', 'apelido', 'rmapelido', 'menuvip', 'vip', 'instagram', 'insta', 'playvideo', 'play_video', 'playmp4'
+        'rmadv', 'unadv', 'remadv', 'ban', 'kick', 'boasvindas', 's', 'sticker', 'figurinha', 'brat', 'totag', 'hidetag', 'admins', 'adms', 'menubaixar', 'baixar', 'balada', 'casas', 'lojacasa', 'comprarcasa', 'alugarcasa', 'minhacasa', 'ativareventos', 'desativareventos', 'aniversario', 'meuaniversario', 'trocarpokebola', 'porcentagem', 'darvip', 'rmvip', 'listarvip', 'vipinfo', 'bauvip', 'baúvip', 'apelido', 'rmapelido', 'menuvip', 'vip', 'instagram', 'insta', 'playvideo', 'play_video', 'playmp4', 'meupirata', 'pirata', 'mapa', 'ilha', 'navegar', 'lutar', 'boss', 'menupirata'
       ];
 
             if (command === 'trocar_dono' && !isDonoReal) {
@@ -6522,6 +6527,479 @@ const emojiCmd = emojiDoComando(command);
               console.error('Erro rank:', errR.message);
               await sock.sendMessage(from, { text: '❌ Erro ao fazer o ranking!' }, { quoted: msg });
             }
+          }
+          break;
+
+        // ═══════════════════════════════════════════════
+        //       🏴‍☠️ SISTEMA PIRATA
+        // ═══════════════════════════════════════════════
+
+        case 'meupirata':
+        case 'pirata':
+          {
+            const u = pirataUser(sender);
+            const ilha = acharIlha(u.ilhaAtual);
+            const xpNec = xpProximoNivel(u.nivel);
+            const xpPct = Math.floor((u.xp / xpNec) * 100);
+            const arma = u.armaEquipada ? (ITENS_LOJA[u.armaEquipada]?.nome || u.armaEquipada) : 'Nenhuma';
+            const armadura = u.armaduraEquipada ? (ITENS_LOJA[u.armaduraEquipada]?.nome || u.armaduraEquipada) : 'Nenhuma';
+            const frutaNome = u.fruta ? (FRUTAS.find(f => f.id === u.fruta)?.nome || u.fruta) : 'Nenhuma';
+            const hakiNome = u.haki ? (HAKIS.find(h => h.id === u.haki)?.nome || u.haki) : 'Nenhum';
+            const racaNome = u.raca ? (RACAS.find(r => r.id === u.raca)?.nome || u.raca) : 'Nenhuma';
+
+            let listaTrip = '';
+            if (u.tripulacao.length === 0) {
+              listaTrip = '│  💭 Nenhum tripulante ainda...\n│  💡 Use *!recrutar*\n';
+            } else {
+              u.tripulacao.forEach((t, i) => {
+                const trip = TRIPULANTES.find(x => x.id === t.id) || t;
+                listaTrip += '│  ' + (i+1) + '. ' + trip.emoji + ' ' + trip.nome + ' (Nv.' + trip.nivel + ')\n';
+              });
+            }
+
+            let txt = '╔══════════════════════════════╗\n' +
+                      '║   🏴‍☠️  𝐅𝐈𝐂𝐇𝐀  𝐃𝐎  𝐏𝐈𝐑𝐀𝐓𝐀  🏴‍☠️   ║\n' +
+                      '╚══════════════════════════════╝\n\n' +
+                      '╭─❖ 👤 𝐈𝐍𝐅𝐎𝐑𝐌𝐀𝐂̧𝐎̃𝐄𝐒 ❖─╮\n│\n' +
+                      '│  👤 Nome: ' + pushName + '\n' +
+                      '│  🏆 Nível: ' + u.nivel + '\n' +
+                      '│  ⭐ Título: ' + tituloNivel(u.nivel) + '\n' +
+                      '│  💀 Procurado: ' + fmtNum(u.reputacao) + '\n' +
+                      '│  🏝️ Ilha: ' + ilha.emoji + ' ' + ilha.nome + '\n│\n' +
+                      '╰─────────────────────╯\n\n' +
+                      '╭─❖ ⚔️ 𝐀𝐓𝐑𝐈𝐁𝐔𝐓𝐎𝐒 ❖─╮\n│\n' +
+                      '│  ❤️ HP: ' + barraProgresso(u.hp, u.hpMax) + '\n' +
+                      '│  ⚡ Energia: ' + barraProgresso(u.energia, u.energiaMax) + '\n' +
+                      '│  ⭐ XP: ' + barraProgresso(u.xp, xpNec) + '\n' +
+                      '│  💪 Força: ' + u.forca + '\n' +
+                      '│  🗡️ Combate: ' + u.combate + '\n' +
+                      '│  🛡️ Defesa: ' + u.defesa + '\n│\n' +
+                      '╰─────────────────────╯\n\n' +
+                      '╭─❖ 🎁 𝐄𝐐𝐔𝐈𝐏𝐀𝐌𝐄𝐍𝐓𝐎𝐒 ❖─╮\n│\n' +
+                      '│  🗡️ Arma: ' + arma + '\n' +
+                      '│  🛡️ Armadura: ' + armadura + '\n' +
+                      '│  🍇 Fruta: ' + frutaNome + '\n' +
+                      '│  🥋 Haki: ' + hakiNome + '\n' +
+                      '│  🧬 Raça: ' + racaNome + '\n│\n' +
+                      '╰─────────────────────╯\n\n' +
+                      '╭─❖ ⚓ 𝐓𝐑𝐈𝐏𝐔𝐋𝐀𝐂̧𝐀̃𝐎 (' + u.tripulacao.length + '/8) ❖─╮\n│\n' +
+                      listaTrip +
+                      '│\n╰─────────────────────╯\n\n' +
+                      '🌸 Shizuki Bot - MD 🌸';
+
+            await sock.sendMessage(from, { text: txt, mentions: [sender] }, { quoted: msg });
+          }
+          break;
+
+        case 'mapa':
+          {
+            const u = pirataUser(sender);
+            let txt = '╔══════════════════════════════╗\n' +
+                      '║   🗺️  𝐌𝐀𝐏𝐀  𝐃𝐎  𝐌𝐔𝐍𝐃𝐎  🗺️      ║\n' +
+                      '╚══════════════════════════════╝\n\n';
+
+            ILHAS.forEach(il => {
+              const liberada = u.nivel >= il.nivelMin;
+              txt += '╭─❖ ' + il.emoji + ' 𝐈𝐋𝐇𝐀 ❖─╮\n│\n';
+              txt += '│  ' + il.nome + '\n';
+              txt += '│  ' + (liberada ? '✅ Liberada' : '🔒 Bloqueada') + ' | Nv. ' + il.nivelMin + '+\n';
+              txt += '│  👹 Boss: ' + il.boss + '\n';
+              txt += '│  ' + (u.ilhaAtual === il.id ? '📍 Você está aqui' : '') + '\n';
+              txt += '╰─────────────────────╯\n\n';
+            });
+
+            txt += '🌸 Shizuki Bot - MD 🌸';
+            await sock.sendMessage(from, { text: txt, mentions: [sender] }, { quoted: msg });
+          }
+          break;
+
+        case 'ilha':
+          {
+            const u = pirataUser(sender);
+            const ilha = acharIlha(u.ilhaAtual);
+            if (!ilha) { await sock.sendMessage(from, { text: '❌ Ilha inválida!' }, { quoted: msg }); break; }
+
+            let txt = '╔══════════════════════════════╗\n' +
+                      '║   ' + ilha.emoji + '  𝐈𝐋𝐇𝐀  𝐀𝐓𝐔𝐀𝐋  ' + ilha.emoji + '     ║\n' +
+                      '╚══════════════════════════════╝\n\n' +
+                      '📍 *' + ilha.nome + '*\n' +
+                      '🏆 Nível mínimo: ' + ilha.nivelMin + '+\n' +
+                      '⭐ XP base: ' + ilha.xpBase + '\n' +
+                      '💰 Ouro base: ' + ilha.ouroBase + '\n\n' +
+                      '╭─❖ 👹 𝐈𝐍𝐈𝐌𝐈𝐆𝐎𝐒 ❖─╮\n│\n';
+            ilha.inimigos.forEach((ini, i) => {
+              txt += '│  ' + (i+1) + '. ' + ini + '\n';
+            });
+            txt += '│\n╰─────────────────────╯\n\n';
+            txt += '╭─❖ 👑 𝐁𝐎𝐒𝐒 ❖─╮\n│\n│  ' + ilha.boss + '\n│\n╰─────────────────────╯\n\n';
+            txt += '💡 Use: *!lutar <inimigo>* ou *!boss*\n\n';
+            txt += '🌸 Shizuki Bot - MD 🌸';
+
+            await sock.sendMessage(from, { text: txt, mentions: [sender] }, { quoted: msg });
+          }
+          break;
+
+        case 'navegar':
+          {
+            const u = pirataUser(sender);
+            const destNome = args.join(' ').trim().toLowerCase();
+            if (!destNome) {
+              await sock.sendMessage(from, { text: '⚠️ Use: *!navegar <nome da ilha>*\n\nEx: *!navegar Alabasta*' }, { quoted: msg });
+              break;
+            }
+            const ilDest = ILHAS.find(i => i.nome.toLowerCase().includes(destNome) || i.id === destNome);
+            if (!ilDest) { await sock.sendMessage(from, { text: '❌ Ilha não encontrada!' }, { quoted: msg }); break; }
+            if (u.ilhaAtual === ilDest.id) { await sock.sendMessage(from, { text: '📍 Você já está nessa ilha!' }, { quoted: msg }); break; }
+            if (u.nivel < ilDest.nivelMin) { await sock.sendMessage(from, { text: '🔒 Você precisa ser nível *' + ilDest.nivelMin + '* pra ir nessa ilha!\n\n💡 Seu nível: *' + u.nivel + '*' }, { quoted: msg }); break; }
+            if (u.energia < 20) { await sock.sendMessage(from, { text: '⚡ Energia insuficiente! Use *!dormir* ou *!meditar*.' }, { quoted: msg }); break; }
+
+            // Se tiver barco, gasta menos energia
+            const custoEnergia = u.barco ? Math.floor(20 * 0.5) : 20;
+            u.energia -= custoEnergia;
+            u.ilhaAtual = ilDest.id;
+            salvarPirata(sender, u);
+
+            await sock.sendMessage(from, {
+              text: '╔══════════════════════════════╗\n' +
+                    '║   🌊  𝐍𝐀𝐕𝐄𝐆𝐀𝐍𝐃𝐎...  🌊        ║\n' +
+                    '╚══════════════════════════════╝\n\n' +
+                    '🎯 Destino: ' + ilDest.emoji + ' *' + ilDest.nome + '*\n' +
+                    '⚡ Energia gasta: *-' + custoEnergia + '*\n' +
+                    '⚡ Energia restante: *' + u.energia + '/' + u.energiaMax + '*\n\n' +
+                    '🏝️ *Você chegou em ' + ilDest.nome + '!*\n' +
+                    '👹 Boss: ' + ilDest.boss + '\n\n' +
+                    '🌸 Shizuki Bot - MD 🌸',
+              mentions: [sender]
+            }, { quoted: msg });
+          }
+          break;
+
+        // Continua no próximo bloco
+
+        case 'lutar':
+          {
+            const u = pirataUser(sender);
+            const ilha = acharIlha(u.ilhaAtual);
+            if (!ilha) { await sock.sendMessage(from, { text: '❌ Ilha inválida!' }, { quoted: msg }); break; }
+
+            const alvoNome = args.join(' ').trim().toLowerCase();
+            if (!alvoNome) {
+              // Mostra inimigos disponíveis
+              let txt = '╔══════════════════════════════╗\n' +
+                        '║   ⚔️  𝐈𝐍𝐈𝐌𝐈𝐆𝐎𝐒  𝐃𝐈𝐒𝐏𝐎𝐍𝐈́𝐕𝐄𝐈𝐒  ⚔️   ║\n' +
+                        '╚══════════════════════════════╝\n\n' +
+                        '🏝️ Ilha: ' + ilha.emoji + ' *' + ilha.nome + '*\n\n' +
+                        '╭─❖ 👹 𝐄𝐒𝐂𝐎𝐋𝐇𝐀 ❖─╮\n│\n';
+              ilha.inimigos.forEach((ini, i) => {
+                txt += '│  ' + (i+1) + '. ' + ini + '\n';
+              });
+              txt += '│\n╰─────────────────────╯\n\n';
+              txt += '💡 Use: *!lutar <nome do inimigo>*\n\n';
+              txt += '🌸 Shizuki Bot - MD 🌸';
+              await sock.sendMessage(from, { text: txt, mentions: [sender] }, { quoted: msg });
+              break;
+            }
+
+            // Acha o inimigo
+            const iniNome = ilha.inimigos.find(i => i.toLowerCase().includes(alvoNome));
+            if (!iniNome) { await sock.sendMessage(from, { text: '❌ Inimigo não encontrado nessa ilha!' }, { quoted: msg }); break; }
+            if (u.energia < 10) { await sock.sendMessage(from, { text: '⚡ Energia insuficiente! Use *!dormir* ou *!meditar*.' }, { quoted: msg }); break; }
+            if (u.hp <= 0) { await sock.sendMessage(from, { text: '💀 Você está morto! Use *!dormir* pra recuperar HP.' }, { quoted: msg }); break; }
+
+            // Stats do inimigo (baseado na ilha)
+            const nivelIni = ilha.nivelMin + Math.floor(Math.random() * 5);
+            const inimigo = {
+              nome: iniNome,
+              forca: Math.floor(ilha.nivelMin * 3 + Math.random() * 20),
+              defesa: Math.floor(ilha.nivelMin * 1.5 + Math.random() * 10),
+              hp: Math.floor(50 + ilha.nivelMin * 5)
+            };
+
+            // Cria cópia do player pra batalha
+            let pForca = u.forca + u.combate;
+            let pDefesa = u.defesa;
+            if (u.armaEquipada) pForca += (ITENS_LOJA[u.armaEquipada]?.forca || 0);
+            if (u.armaduraEquipada) pDefesa += (ITENS_LOJA[u.armaduraEquipada]?.defesa || 0);
+
+            let pHp = u.hp;
+            let iHp = inimigo.hp;
+            let rodadas = '';
+            let turno = 1;
+
+            // Loop de batalha (máximo 10 rodadas)
+            while (pHp > 0 && iHp > 0 && turno <= 10) {
+              // Player ataca
+              const danoP = Math.max(5, Math.floor((pForca * 1.5 - inimigo.defesa) * (0.8 + Math.random() * 0.4)));
+              const critico = Math.random() < 0.15;
+              const danoFinal = critico ? Math.floor(danoP * 1.5) : danoP;
+              iHp -= danoFinal;
+              rodadas += '⚔️ Você ataca! (-' + danoFinal + (critico ? ' CRÍTICO!' : '') + ')\n';
+              if (iHp <= 0) { rodadas += '👹 DERROTADO!\n'; break; }
+              rodadas += '   👹 Inimigo: ' + Math.max(0, iHp) + '/' + inimigo.hp + '\n\n';
+
+              // Inimigo ataca
+              const danoI = Math.max(3, Math.floor((inimigo.forca - pDefesa) * (0.8 + Math.random() * 0.4)));
+              pHp -= danoI;
+              rodadas += '👹 Inimigo ataca! (-' + danoI + ')\n';
+              if (pHp <= 0) { rodadas += '💀 VOCÊ CAIU!\n'; break; }
+              rodadas += '   ❤️ Você: ' + Math.max(0, pHp) + '/' + u.hpMax + '\n\n';
+              turno++;
+            }
+
+            u.energia -= 10;
+            u.hp = Math.max(0, pHp);
+
+            if (iHp <= 0) {
+              // VITÓRIA
+              const xpGanha = ilha.xpBase + Math.floor(Math.random() * 50);
+              const ouroGanha = ilha.ouroBase + Math.floor(Math.random() * 30);
+              const repGanha = Math.floor(xpGanha / 10);
+              u.xp += xpGanha;
+              u.ouro += ouroGanha;
+              u.reputacao += repGanha;
+              // Chance de subir stats
+              const subiuForca = Math.random() < 0.3;
+              const subiuCombate = Math.random() < 0.3;
+              const subiuDefesa = Math.random() < 0.2;
+              if (subiuForca) u.forca += 1;
+              if (subiuCombate) u.combate += 1;
+              if (subiuDefesa) u.defesa += 1;
+
+              // Verifica level up
+              let subiuNivel = false;
+              while (u.xp >= xpProximoNivel(u.nivel)) {
+                u.xp -= xpProximoNivel(u.nivel);
+                u.nivel += 1;
+                u.hpMax += 10;
+                u.hp = u.hpMax;
+                u.forca += 2;
+                u.combate += 1;
+                u.defesa += 1;
+                subiuNivel = true;
+              }
+              salvarPirata(sender, u);
+
+              let txtFinal = '╔══════════════════════════════╗\n' +
+                             '║   ⚔️  𝐁𝐀𝐓𝐀𝐋𝐇𝐀  ⚔️              ║\n' +
+                             '╚══════════════════════════════╝\n\n' +
+                             '🏴‍☠️ *' + pushName + '* vs 👹 *' + iniNome + '*\n\n' +
+                             '╭─❖ 🔥 𝐑𝐎𝐔𝐍𝐃𝐒 ❖─╮\n│\n' +
+                             rodadas.replace(/\n/g, '\n│  ') + '│\n╰─────────────────────╯\n\n' +
+                             '╭─❖ 🎁 𝐑𝐄𝐂𝐎𝐌𝐏𝐄𝐍𝐒𝐀𝐒 ❖─╮\n│\n' +
+                             '│  ⭐ +' + xpGanha + ' XP\n' +
+                             '│  💰 +' + ouroGanha + ' berries\n' +
+                             '│  💀 +' + repGanha + ' procurado\n';
+              if (subiuForca) txtFinal += '│  💪 +1 Força\n';
+              if (subiuCombate) txtFinal += '│  🗡️ +1 Combate\n';
+              if (subiuDefesa) txtFinal += '│  🛡️ +1 Defesa\n';
+              if (subiuNivel) txtFinal += '│  🎉 SUBIU PRA NÍVEL ' + u.nivel + '!\n';
+              txtFinal += '│\n╰─────────────────────╯\n\n' +
+                          '❤️ HP: ' + u.hp + '/' + u.hpMax + '\n' +
+                          '⚡ Energia: ' + u.energia + '/' + u.energiaMax + '\n\n' +
+                          '🌸 Shizuki Bot - MD 🌸';
+
+              await sock.sendMessage(from, { text: txtFinal, mentions: [sender] }, { quoted: msg });
+            } else {
+              // DERROTA
+              const perdaRep = Math.floor(u.reputacao * 0.1);
+              const perdaOuro = Math.floor(u.ouro * 0.2);
+              u.reputacao = Math.max(0, u.reputacao - perdaRep);
+              u.ouro = Math.max(0, u.ouro - perdaOuro);
+              const morreu = u.hp <= 0;
+              if (morreu) { u.hp = 0; }
+              salvarPirata(sender, u);
+
+              let txtDerrota = '╔══════════════════════════════╗\n' +
+                               '║   💀  𝐃𝐄𝐑𝐑𝐎𝐓𝐀  💀              ║\n' +
+                               '╚══════════════════════════════╝\n\n' +
+                               '╭─❖ 💔 𝐑𝐄𝐒𝐔𝐋𝐓𝐀𝐃𝐎 ❖─╮\n│\n' +
+                               '│  💔 Você perdeu pra *' + iniNome + '*!\n' +
+                               '│  📉 -' + perdaRep + ' procurado\n' +
+                               '│  💰 -' + perdaOuro + ' berries\n';
+              if (morreu) txtDerrota += '│  💀 *VOCÊ MORREU!*\n│  💡 Use *!dormir* pra recuperar\n';
+              else txtDerrota += '│  ❤️ HP restante: ' + u.hp + '/' + u.hpMax + '\n';
+              txtDerrota += '│\n╰─────────────────────╯\n\n';
+              txtDerrota += '🌸 Shizuki Bot - MD 🌸';
+
+              await sock.sendMessage(from, { text: txtDerrota, mentions: [sender] }, { quoted: msg });
+            }
+          }
+          break;
+
+        case 'boss':
+          {
+            const u = pirataUser(sender);
+            const ilha = acharIlha(u.ilhaAtual);
+            if (!ilha) { await sock.sendMessage(from, { text: '❌ Ilha inválida!' }, { quoted: msg }); break; }
+            if (u.energia < 30) { await sock.sendMessage(from, { text: '⚡ Precisa de 30 energia pro boss! Use *!dormir*.' }, { quoted: msg }); break; }
+            if (u.hp <= 0) { await sock.sendMessage(from, { text: '💀 Você está morto! Use *!dormir* pra recuperar HP.' }, { quoted: msg }); break; }
+            if (u.bossesDerrotados && u.bossesDerrotados.includes(ilha.id)) {
+              await sock.sendMessage(from, { text: '👑 Você já derrotou o boss *' + ilha.boss + '* dessa ilha!' }, { quoted: msg });
+              break;
+            }
+
+            // Boss é MUITO forte
+            const boss = {
+              nome: ilha.boss,
+              forca: ilha.nivelMin * 6 + 50,
+              defesa: ilha.nivelMin * 3 + 30,
+              hp: 200 + ilha.nivelMin * 15
+            };
+
+            let pForca = u.forca + u.combate;
+            let pDefesa = u.defesa;
+            if (u.armaEquipada) pForca += (ITENS_LOJA[u.armaEquipada]?.forca || 0);
+            if (u.armaduraEquipada) pDefesa += (ITENS_LOJA[u.armaduraEquipada]?.defesa || 0);
+            if (u.fruta) { const fr = FRUTAS.find(f => f.id === u.fruta); if (fr && fr.bonus) { pForca += (fr.bonus.forca || 0); pDefesa += (fr.bonus.defesa || 0); } }
+
+            let pHp = u.hp;
+            let iHp = boss.hp;
+            let rodadas = '';
+            let turno = 1;
+
+            while (pHp > 0 && iHp > 0 && turno <= 20) {
+              const danoP = Math.max(5, Math.floor((pForca * 1.5 - boss.defesa) * (0.8 + Math.random() * 0.4)));
+              const critico = Math.random() < 0.2;
+              const danoFinal = critico ? Math.floor(danoP * 1.8) : danoP;
+              iHp -= danoFinal;
+              rodadas += '⚔️ Você ataca! (-' + danoFinal + (critico ? ' CRÍTICO!' : '') + ')\n';
+              if (iHp <= 0) { rodadas += '👑 BOSS DERROTADO!\n'; break; }
+              rodadas += '   👹 ' + boss.nome + ': ' + Math.max(0, iHp) + '/' + boss.hp + '\n\n';
+
+              const danoI = Math.max(5, Math.floor((boss.forca - pDefesa) * (0.8 + Math.random() * 0.4)));
+              pHp -= danoI;
+              rodadas += '👹 ' + boss.nome + ' ataca! (-' + danoI + ')\n';
+              if (pHp <= 0) { rodadas += '💀 VOCÊ CAIU!\n'; break; }
+              rodadas += '   ❤️ Você: ' + Math.max(0, pHp) + '/' + u.hpMax + '\n\n';
+              turno++;
+            }
+
+            u.energia -= 30;
+            u.hp = Math.max(0, pHp);
+
+            if (iHp <= 0) {
+              // VITÓRIA ÉPICA
+              const xpGanha = ilha.xpBase * 5;
+              const ouroGanha = ilha.ouroBase * 5;
+              const repGanha = Math.floor(xpGanha / 5);
+              u.xp += xpGanha;
+              u.ouro += ouroGanha;
+              u.reputacao += repGanha;
+              u.bossesDerrotados = u.bossesDerrotados || [];
+              u.bossesDerrotados.push(ilha.id);
+
+              let subiuNivel = false;
+              while (u.xp >= xpProximoNivel(u.nivel)) {
+                u.xp -= xpProximoNivel(u.nivel);
+                u.nivel += 1;
+                u.hpMax += 10;
+                u.hp = u.hpMax;
+                u.forca += 3;
+                u.combate += 2;
+                u.defesa += 2;
+                subiuNivel = true;
+              }
+              salvarPirata(sender, u);
+
+              let txtFinal = '╔══════════════════════════════╗\n' +
+                             '║   👑  𝐁𝐎𝐒𝐒  𝐃𝐄𝐑𝐑𝐎𝐓𝐀𝐃𝐎!  👑       ║\n' +
+                             '╚══════════════════════════════╝\n\n' +
+                             '🏴‍☠️ *' + pushName + '* derrotou *' + boss.nome + '*!\n\n' +
+                             '╭─❖ 🔥 𝐑𝐎𝐔𝐍𝐃𝐒 ❖─╮\n│\n' +
+                             rodadas.replace(/\n/g, '\n│  ') + '│\n╰─────────────────────╯\n\n' +
+                             '╭─❖ 🎁 𝐑𝐄𝐂𝐎𝐌𝐏𝐄𝐍𝐒𝐀𝐒 ❖─╮\n│\n' +
+                             '│  ⭐ +' + xpGanha + ' XP (MUITO!)\n' +
+                             '│  💰 +' + ouroGanha + ' berries\n' +
+                             '│  💀 +' + repGanha + ' procurado\n';
+              if (subiuNivel) txtFinal += '│  🎉 SUBIU PRA NÍVEL ' + u.nivel + '!\n';
+              txtFinal += '│\n╰─────────────────────╯\n\n' +
+                          '❤️ HP: ' + u.hp + '/' + u.hpMax + '\n' +
+                          '⚡ Energia: ' + u.energia + '/' + u.energiaMax + '\n\n' +
+                          '🌸 Shizuki Bot - MD 🌸';
+
+              await sock.sendMessage(from, { text: txtFinal, mentions: [sender] }, { quoted: msg });
+            } else {
+              // DERROTA
+              const perdaRep = Math.floor(u.reputacao * 0.15);
+              const perdaOuro = Math.floor(u.ouro * 0.25);
+              u.reputacao = Math.max(0, u.reputacao - perdaRep);
+              u.ouro = Math.max(0, u.ouro - perdaOuro);
+              const morreu = u.hp <= 0;
+              if (morreu) { u.hp = 0; }
+              salvarPirata(sender, u);
+
+              let txtDerrota = '╔══════════════════════════════╗\n' +
+                               '║   💀  𝐃𝐄𝐑𝐑𝐎𝐓𝐀  💀              ║\n' +
+                               '╚══════════════════════════════╝\n\n' +
+                               '╭─❖ 💔 𝐑𝐄𝐒𝐔𝐋𝐓𝐀𝐃𝐎 ❖─╮\n│\n' +
+                               '│  💔 Você perdeu pro boss *' + boss.nome + '*!\n' +
+                               '│  📉 -' + perdaRep + ' procurado\n' +
+                               '│  💰 -' + perdaOuro + ' berries\n';
+              if (morreu) txtDerrota += '│  💀 *VOCÊ MORREU!*\n│  💡 Use *!dormir* pra recuperar\n';
+              txtDerrota += '│\n╰─────────────────────╯\n\n';
+              txtDerrota += '🌸 Shizuki Bot - MD 🌸';
+
+              await sock.sendMessage(from, { text: txtDerrota, mentions: [sender] }, { quoted: msg });
+            }
+          }
+          break;
+
+        case 'menupirata':
+        case 'pirata':
+          {
+            const u = pirataUser(sender);
+            const ilha = acharIlha(u.ilhaAtual);
+            const menuPir =
+              '╔══════════════════════════════╗\n' +
+              '║   🏴‍☠️  𝐌𝐄𝐍𝐔  𝐏𝐈𝐑𝐀𝐓𝐀  🏴‍☠️          ║\n' +
+              '╚══════════════════════════════╝\n\n' +
+              '╭─❖ 👤 𝐏𝐄𝐑𝐅𝐈𝐋 ❖─╮\n│\n' +
+              '│  💜 !meupirata\n' +
+              '│  💜 !procurado\n' +
+              '│  💜 !mapa\n' +
+              '│  💜 !ilha\n' +
+              '│  💜 !navegar <ilha>\n│\n' +
+              '╰─────────────────────╯\n\n' +
+              '╭─❖ ⚔️ 𝐂𝐎𝐌𝐁𝐀𝐓𝐄 ❖─╮\n│\n' +
+              '│  💜 !lutar <inimigo>\n' +
+              '│  💜 !boss\n' +
+              '│  💜 !treinar\n│\n' +
+              '╰─────────────────────╯\n\n' +
+              '╭─❖ 🍇 𝐒𝐎𝐑𝐓𝐄 ❖─╮\n│\n' +
+              '│  💜 !girarfruta (200)\n' +
+              '│  💜 !girarhaki (Nv.20+)\n' +
+              '│  💜 !girarraça (Nv.60+)\n│\n' +
+              '╰─────────────────────╯\n\n' +
+              '╭─❖ ⚓ 𝐓𝐑𝐈𝐏𝐔𝐋𝐀𝐂̧𝐀̃𝐎 ❖─╮\n│\n' +
+              '│  💜 !recrutar\n' +
+              '│  💜 !recrutar <nome>\n' +
+              '│  💜 !meustripulantes\n' +
+              '│  💜 !treinartripulacao\n' +
+              '│  💜 !demitir <nome>\n│\n' +
+              '╰─────────────────────╯\n\n' +
+              '╭─❖ 🛒 𝐋𝐎𝐉𝐀 ❖─╮\n│\n' +
+              '│  💜 !loja\n' +
+              '│  💜 !lojabarcos\n' +
+              '│  💜 !comprar <item>\n' +
+              '│  💜 !comprarbarco <nome>\n' +
+              '│  💜 !inventario\n' +
+              '│  💜 !vender <item>\n' +
+              '│  💜 !equipar <item>\n│\n' +
+              '╰─────────────────────╯\n\n' +
+              '╭─❖ 💤 𝐕𝐈𝐃𝐀 ❖─╮\n│\n' +
+              '│  💜 !dormir\n' +
+              '│  💜 !comer\n' +
+              '│  💜 !meditar\n│\n' +
+              '╰─────────────────────╯\n\n' +
+              '╭─❖ 🏆 𝐑𝐀𝐍𝐊𝐈𝐍𝐆 ❖─╮\n│\n' +
+              '│  💜 !topiratas\n│\n' +
+              '╰─────────────────────╯\n\n' +
+              '📍 Ilha atual: ' + ilha.emoji + ' *' + ilha.nome + '*\n' +
+              '🏆 Nível: *' + u.nivel + '*\n' +
+              '💀 Procurado: *' + fmtNum(u.reputacao) + '*\n\n' +
+              '🌸 Shizuki Bot - MD 🌸';
+
+            await sock.sendMessage(from, { text: menuPir, mentions: [sender] }, { quoted: msg });
           }
           break;
 
