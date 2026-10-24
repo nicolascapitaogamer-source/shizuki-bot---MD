@@ -3755,6 +3755,39 @@ async function chamarGroq(mensagem) {
 }
 // ===== FIM SISTEMA DE IA =====
 
+
+async function chamarGroqAvancada(mensagem, promptExtra = '') {
+  try {
+    const apiKey = process.env.GROQ_KEY;
+    if (!apiKey) return { erro: 'Chave da IA não configurada.' };
+    
+    const url = 'https://api.groq.com/openai/v1/chat/completions';
+    const promptSistema = `Você é a Shizuki, uma bot de WhatsApp fofa e inteligente. Sua função é conversar e ajudar. 
+IMPORTANTE: Se o usuário pedir para executar uma ação do bot (ex: beijar alguém, abraçar, abrir o menu), responda APENAS:
+EXECUTAR|nome_do_comando|alvo (se houver)
+
+Exemplos:
+- Usuário: "beija o joao" -> Resposta: EXECUTAR|beijo|joao
+- Usuário: "abre o menu pra mim" -> Resposta: EXECUTAR|menu|
+- Usuário: "quem é seu criador?" -> Resposta (texto): Fui criada pelo nick dev, um dev incrível!
+Se for conversa normal, use emojis 🌸💜. ${promptExtra}`;
+
+    const resposta = await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'openai/gpt-oss-20b',
+        messages: [ { role: 'system', content: promptSistema }, { role: 'user', content: mensagem } ]
+      })
+    });
+
+    const json = await resposta.json();
+    if (json.error) return { erro: json.error.message };
+    return { texto: json.choices[0].message.content };
+  } catch (e) {
+    return { erro: 'Erro interno na IA: ' + e.message };
+  }
+}
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
@@ -13827,6 +13860,39 @@ const emojiCmd = emojiDoComando(command);
               await sock.sendMessage(from, { text: '🌸 *Shizuki:* ' + respostaIA }, { quoted: msg });
             } else {
               await sock.sendMessage(from, { text: '⚠️ Ocorreu um erro ao falar com a IA. Tente novamente mais tarde.' }, { quoted: msg });
+            }
+          }
+          break;
+
+        
+        case 'i':
+          {
+            const textoIA = args.join(' ').trim();
+            if (!textoIA) {
+              await sock.sendMessage(from, { text: '🌸 Use: !i <sua mensagem>\nEx: !i beija o @joao' }, { quoted: msg });
+              break;
+            }
+            await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
+            
+            const resIA = await chamarGroqAvancada(textoIA);
+            if (resIA.erro) {
+              await sock.sendMessage(from, { text: '⚠️ ' + resIA.erro }, { quoted: msg });
+              break;
+            }
+
+            const txt = resIA.texto;
+            if (txt.startsWith('EXECUTAR|')) {
+              const partes = txt.split('|');
+              const comando = partes[1].trim();
+              const alvo = partes[2] ? partes[2].trim() : null;
+              let cmdFinal = '!' + comando;
+              if (alvo) cmdFinal += ' @' + alvo;
+
+              await sock.sendMessage(from, { text: '🌸 *Shizuki:* Executando ' + cmdFinal }, { quoted: msg });
+              const msgFake = { ...msg, message: { conversation: cmdFinal } };
+              sock.ev.emit('messages.upsert', { messages: [msgFake], type: 'notify' });
+            } else {
+              await sock.sendMessage(from, { text: '🌸 *Shizuki:* ' + txt }, { quoted: msg });
             }
           }
           break;
