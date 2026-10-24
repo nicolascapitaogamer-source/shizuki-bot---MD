@@ -3788,6 +3788,29 @@ Se for conversa normal, use emojis 🌸💜. ${promptExtra}`;
     return { erro: 'Erro interno na IA: ' + e.message };
   }
 }
+
+async function chamarIABot(mensagem) {
+  try {
+    const keyPath = './key.txt';
+    const apiKey = fs.existsSync(keyPath) ? fs.readFileSync(keyPath, 'utf8').trim() : '';
+    if (!apiKey) return { erro: 'Chave da IA não configurada.' };
+
+    const sysPrompt = "Você é a Shizuki. Se o usuário pedir ação (beijar, abraçar, menu), responda APENAS: EXECUTAR|comando|alvo. Se for pergunta, responda normal.";
+    
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'openai/gpt-oss-20b',
+        messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: mensagem }]
+      })
+    });
+    const j = await r.json();
+    if (j.error) return { erro: j.error.message };
+    return { texto: j.choices[0].message.content };
+  } catch (e) { return { erro: e.message }; }
+}
+
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
@@ -13890,6 +13913,38 @@ const emojiCmd = emojiDoComando(command);
 
               await sock.sendMessage(from, { text: '🌸 *Shizuki:* Executando ' + cmdFinal }, { quoted: msg });
               const msgFake = { ...msg, message: { conversation: cmdFinal } };
+              sock.ev.emit('messages.upsert', { messages: [msgFake], type: 'notify' });
+            } else {
+              await sock.sendMessage(from, { text: '🌸 *Shizuki:* ' + txt }, { quoted: msg });
+            }
+          }
+          break;
+
+        
+        case 'iabot':
+        case 'shizukibot':
+          {
+            const prompt = args.join(' ').trim();
+            if (!prompt) {
+              await sock.sendMessage(from, { text: '🌸 Use: !iabot <mensagem>\nEx: !iabot beija o @joao' }, { quoted: msg });
+              break;
+            }
+            await sock.sendMessage(from, { react: { text: '⏳', key: msg.key } });
+            const res = await chamarIABot(prompt);
+            
+            if (res.erro) {
+              await sock.sendMessage(from, { text: '⚠️ ' + res.erro }, { quoted: msg });
+              break;
+            }
+
+            const txt = res.texto;
+            if (txt.startsWith('EXECUTAR|')) {
+              const p = txt.split('|');
+              let cmd = '!' + p[1].trim();
+              if (p[2]) cmd += ' @' + p[2].trim();
+              
+              await sock.sendMessage(from, { text: '🌸 *Shizuki:* Executando ' + cmd }, { quoted: msg });
+              const msgFake = { ...msg, message: { conversation: cmd } };
               sock.ev.emit('messages.upsert', { messages: [msgFake], type: 'notify' });
             } else {
               await sock.sendMessage(from, { text: '🌸 *Shizuki:* ' + txt }, { quoted: msg });
