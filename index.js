@@ -3736,7 +3736,7 @@ async function chamarGroq(mensagem) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-20b',
         messages: [
           { role: 'system', content: 'Você é a Shizuki, uma bot de WhatsApp fofa, amigável e que fala português do Brasil. Responda de forma curta, simpática e use emojis fofos como 🌸, 💜 e ✨. Nunca diga que é uma IA, aja como a bot Shizuki.' },
           { role: 'user', content: mensagem }
