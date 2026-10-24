@@ -1,0 +1,29 @@
+# Dependências
+node_modules/
+
+# Sessão do WhatsApp
+auth_info/
+auth_info_baileys/
+
+# Dados dos usuários (NÃO subir)
+*.json
+!package.json
+!package-lock.json
+
+# Scripts de fix (temporários)
+*.cjs
+
+# Backups do index
+index.js.*
+index.js.antes*
+index.js.ANTES*
+index.js.save*
+*.bak
+*.save
+
+# Temporários
+tmp_*
+*.webp
+
+# Áudio (muito pesado)
+menu_audio.mp3

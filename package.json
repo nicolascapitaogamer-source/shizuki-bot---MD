@@ -1,0 +1,19 @@
+{
+  "name": "meu-bot-whatsapp",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp para Termux",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node start.js"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "aki-api": "^7.0.1",
+    "akinator-api": "^1.0.1",
+    "pino": "^9.0.0",
+    "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.35.5"
+  }
+}
