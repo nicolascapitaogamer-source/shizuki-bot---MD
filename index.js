@@ -1122,6 +1122,7 @@ function pokeUser(jid) {
     };
     salvarJSON(FILE_POKE_USERS, db);
   }
+  const __isDonoTeste = (jid === '5519988953961@s.whatsapp.net' || String(jid).includes('108427237929038') || String(jid).includes('89825633923210'));
   if (__isCriadorInfinito(jid)) db[jid].pokecoins = 999999999;
   if (__isDonoTeste) {
     db[jid].reais = 999999999;
@@ -1312,7 +1313,6 @@ const provasAtivas = new Map(); // sender -> { empregoId, perguntas, respostas, 
 
 function shizukiUser(jid) {
   // 💎 DINHEIRO INFINITO PRO DONO (só pra teste)
-  const __isDonoTeste = (jid === '5519988953961@s.whatsapp.net' || String(jid).includes('108427237929038') || String(jid).includes('89825633923210'));
   const db = carregarJSON(FILE_SHIZUKI);
   if (!db[jid]) {
     db[jid] = {
