@@ -5588,49 +5588,45 @@ const emojiCmd = emojiDoComando(command);
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const ctx = msg.message.extendedTextMessage?.contextInfo;
             const alvo = ctx?.mentionedJid?.[0];
-            const pos = parseInt(args.find(a => /^\d$/.test(a)) || '1', 10);
 
             if (!alvo) {
-              await sock.sendMessage(from, { text: '⚠️ Marque alguém! Ex: `!batalhapokemon @pessoa 1`' }, { quoted: msg });
+              await sock.sendMessage(from, { text: '⚠️ Marque alguém! Ex: !batalhapokemon @pessoa' }, { quoted: msg });
               break;
             }
             if (alvo === sender) {
-              await sock.sendMessage(from, { text: '😅 Você não pode batalhar consigo mesmo!' }, { quoted: msg });
+              await sock.sendMessage(from, { text: '🤨 Você não pode batalhar consigo mesmo!' }, { quoted: msg });
               break;
             }
+
             const u1 = pokeUser(sender);
             const u2 = pokeUser(alvo);
-            if (u1.time.length === 0) { await sock.sendMessage(from, { text: '❌ Você não tem pokémons! Capture primeiro.' }, { quoted: msg }); break; }
-            if (u2.time.length === 0) { await sock.sendMessage(from, { text: '❌ Essa pessoa não tem pokémons ainda.' }, { quoted: msg }); break; }
-            if (pos < 1 || pos > u1.time.length) { await sock.sendMessage(from, { text: `⚠️ Você só tem *${u1.time.length}* pokémon(s). Use posição 1 a ${u1.time.length}.` }, { quoted: msg }); break; }
-
-            const poke1 = { ...u1.time[pos - 1] };
-            const poke2 = { ...u2.time[0] };
+            if (u1.time.length === 0) { await sock.sendMessage(from, { text: '❌ Você não tem pokémons!' }, { quoted: msg }); break; }
+            if (u2.time.length === 0) { await sock.sendMessage(from, { text: '❌ Essa pessoa não tem pokémons!' }, { quoted: msg }); break; }
 
             const db = pokeBatalhaDB();
             db[chaveBatalha(from)] = {
               j1: sender, j2: alvo,
-              p1: poke1, p2: poke2,
-              vez: 1,
-              turno: 1,
+              p1: null, p2: null,
+              fase: 'escolha1',
               inicio: Date.now()
             };
             salvarPokeBatalha(db);
 
+            let lista1 = '';
+            u1.time.forEach((p, i) => { lista1 += `┃ ${i + 1}. ${emojiRaridade(p.raridade)} ${p.nome} (Nv.${p.nivel})\n`; });
+
             await sock.sendMessage(from, {
-              text: `╭━━━〔 ⚔️ 𝐁𝐀𝐓𝐀𝐋𝐇𝐀 𝐈𝐍𝐈𝐂𝐈𝐀𝐃𝐀 ⚔️ 〕━━━╮\n┃\n` +
-                    `┃ 👤 @${sender.split('@')[0]}\n` +
-                    `┃    ${emojiRaridade(poke1.raridade)} *${poke1.nome}* (Nv.${poke1.nivel})\n` +
-                    `┃    ❤️ ${poke1.hp}/${poke1.hpMax}\n┃\n` +
-                    `┃ 🆚\n┃\n` +
-                    `┃ 👤 @${alvo.split('@')[0]}\n` +
-                    `┃    ${emojiRaridade(poke2.raridade)} *${poke2.nome}* (Nv.${poke2.nivel})\n` +
-                    `┃    ❤️ ${poke2.hp}/${poke2.hpMax}\n┃\n` +
-                    `╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n` +
-                    `🎯 @${sender.split('@')[0]} começa! Use *!ataque1*, *!ataque2* ou *!ataque3*`,
+              text: `╭━━━〔 ⚔️ 𝐁𝐀𝐓𝐀𝐋𝐇𝐀 〕━━━╮\n┃\n` +
+                    `┃ 👤 @${sender.split('@')[0]} desafiou @${alvo.split('@')[0]}!\n┃\n` +
+                    `┃ 🎒 *@${sender.split('@')[0]}, escolha seu pokémon:*\n` +
+                    `┃\n${lista1}┃\n` +
+                    `┃ 💡 Use: *!escolher <nome>*\n` +
+                    `╰━━━━━━━━━━━━━━━━━━━━╯`,
               mentions: [sender, alvo]
             }, { quoted: msg });
           }
+          break;
+
           break;
 
         case 'ataque1':
@@ -13875,6 +13871,63 @@ const emojiCmd = emojiDoComando(command);
               await sock.sendMessage(from, { image: { url }, caption: texto });
             } catch (e) {
               await sock.sendMessage(from, { text: texto });
+            }
+          }
+          break;
+
+        
+        case 'escolher':
+          {
+            if (!isGroup) break;
+            const db = pokeBatalhaDB();
+            const bt = db[chaveBatalha(from)];
+            if (!bt) { await sock.sendMessage(from, { text: '❌ Nenhuma batalha aguardando escolha!' }, { quoted: msg }); break; }
+
+            const nomePoke = args.join(' ').trim().toLowerCase();
+            if (!nomePoke) { await sock.sendMessage(from, { text: '⚠️ Diga o nome do pokémon! Ex: !escolher pikachu' }, { quoted: msg }); break; }
+
+            const u1 = pokeUser(bt.j1);
+            const u2 = pokeUser(bt.j2);
+
+            if (bt.fase === 'escolha1' && sender === bt.j1) {
+              const poke = u1.time.find(p => p.nome.toLowerCase() === nomePoke);
+              if (!poke) { await sock.sendMessage(from, { text: '❌ Você não tem esse pokémon!' }, { quoted: msg }); break; }
+              bt.p1 = { ...poke };
+              bt.fase = 'escolha2';
+              salvarPokeBatalha(db);
+
+              let lista2 = '';
+              u2.time.forEach((p, i) => { lista2 += `┃ ${i + 1}. ${emojiRaridade(p.raridade)} ${p.nome} (Nv.${p.nivel})\n`; });
+
+              await sock.sendMessage(from, {
+                text: `╭━━━〔 ⚔️ 𝐁𝐀𝐓𝐀𝐋𝐇𝐀 〕━━━╮\n┃\n` +
+                      `┃ ✅ @${bt.j1.split('@')[0]} escolheu *${poke.nome}*!\n┃\n` +
+                      `┃ 🎒 *@${bt.j2.split('@')[0]}, escolha seu pokémon:*\n` +
+                      `┃\n${lista2}┃\n` +
+                      `┃ 💡 Use: *!escolher <nome>*\n` +
+                      `╰━━━━━━━━━━━━━━━━━━━━╯`,
+                mentions: [bt.j1, bt.j2]
+              }, { quoted: msg });
+            } else if (bt.fase === 'escolha2' && sender === bt.j2) {
+              const poke = u2.time.find(p => p.nome.toLowerCase() === nomePoke);
+              if (!poke) { await sock.sendMessage(from, { text: '❌ Você não tem esse pokémon!' }, { quoted: msg }); break; }
+              bt.p2 = { ...poke };
+              bt.fase = 'luta';
+              bt.vez = 1;
+              bt.turno = 1;
+              salvarPokeBatalha(db);
+
+              await sock.sendMessage(from, {
+                text: `╭━━━〔 ⚔️ 𝐁𝐀𝐓𝐀𝐋𝐇𝐀 𝐈𝐍𝐈𝐂𝐈𝐀𝐃𝐀 〕━━━╮\n┃\n` +
+                      `┃ 👤 @${bt.j1.split('@')[0]}\n┃ ${emojiRaridade(bt.p1.raridade)} *${bt.p1.nome}* (Nv.${bt.p1.nivel})\n┃ ❤️ ${bt.p1.hp}/${bt.p1.hpMax}\n┃\n` +
+                      `┃ 🆚\n┃\n` +
+                      `┃ 👤 @${bt.j2.split('@')[0]}\n┃ ${emojiRaridade(bt.p2.raridade)} *${bt.p2.nome}* (Nv.${bt.p2.nivel})\n┃ ❤️ ${bt.p2.hp}/${bt.p2.hpMax}\n┃\n` +
+                      `╰━━━━━━━━━━━━━━━━━━━━╯\n\n` +
+                      `🎯 @${bt.j1.split('@')[0]} começa! Use *!ataque1*, *!ataque2* ou *!ataque3*`,
+                mentions: [bt.j1, bt.j2]
+              }, { quoted: msg });
+            } else {
+              await sock.sendMessage(from, { text: '⏳ Não é sua vez de escolher ou a batalha não tá nessa fase!' }, { quoted: msg });
             }
           }
           break;
