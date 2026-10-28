@@ -4244,6 +4244,66 @@ async function connectToWhatsApp() {
           continue;
         }
       }
+      
+      // ===== SISTEMA AFK =====
+      try {
+        const afkDB = carregarJSON('./afk.json');
+        const senderAFK = sender;
+        
+        // Se a pessoa tá voltando (mandou qualquer mensagem e tá no AFK)
+        if (afkDB[senderAFK]) {
+          const motivoSalvo = afkDB[senderAFK].motivo || 'Não informado';
+          const tempoOff = Math.floor((Date.now() - afkDB[senderAFK].tempo) / 1000);
+          
+          delete afkDB[senderAFK];
+          salvarJSON('./afk.json', afkDB);
+          
+          await sock.sendMessage(from, {
+            text: `╭━━━〔 👋 𝐁𝐄𝐌-𝐕𝐈𝐍𝐃𝐎 𝐃𝐄 𝐕𝐎𝐋𝐓𝐀! 👋 〕━━━╮\n┃\n` +
+                  `┃ 💜 Ainda bem que você voltou!\n┃ Estava com saudades...\n┃\n` +
+                  `┃ ⏳ Você ficou *${tempoOff} segundo(s)* off!\n` +
+                  `┃ 📝 Motivo: *${motivoSalvo}*\n┃\n` +
+                  `╰━━━━━━━━━━━━━━━━━━━━╯`,
+            mentions: [senderAFK]
+          });
+        }
+
+        // Se a pessoa mandou o comando !afk (ou só "afk")
+        const isAfk = text.trim().toLowerCase() === 'afk' || text.trim().toLowerCase().startsWith('afk ');
+        if (isAfk) {
+          const motivo = text.trim().slice(3).trim() || 'Sem motivo aparente';
+          afkDB[senderAFK] = { motivo: motivo, tempo: Date.now() };
+          salvarJSON('./afk.json', afkDB);
+          
+          await sock.sendMessage(from, {
+            text: `╭━━━〔 😴 𝐀𝐅𝐊 𝐀𝐓𝐈𝐕𝐀𝐃𝐎 😴 〕━━━╮\n┃\n` +
+                  `┃ 👤 @${sender.split('@')[0]} saiu de férias do zap!\n┃\n` +
+                  `┃ 📝 Motivo: *${motivo}*\n` +
+                  `┃ ⏳ Avisarei quando você voltar.\n┃\n` +
+                  `╰━━━━━━━━━━━━━━━━━━━━╯`,
+            mentions: [senderAFK]
+          });
+          continue; // Para de processar a mensagem atual
+        }
+
+        // Verifica se alguém marcou a pessoa que tá AFK
+        const mencoes = msg.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
+        for (const m of mencoes) {
+          if (afkDB[m]) {
+            await sock.sendMessage(from, {
+              text: `╭━━━〔 😴 𝐄𝐌 𝐅𝐄́𝐑𝐈𝐀𝐒 😴 〕━━━╮\n┃\n` +
+                    `┃ 🌸 O @${m.split('@')[0]} tá de férias!\n┃\n` +
+                    `┃ 📝 Motivo: *${afkDB[m].motivo}*\n┃\n` +
+                    `╰━━━━━━━━━━━━━━━━━━━━╯`,
+              mentions: [m]
+            });
+          }
+        }
+      } catch (e) {
+        console.error('Erro no AFK:', e.message);
+      }
+      // ===== FIM SISTEMA AFK =====
+
       const quotedStanzaId = msg.message.extendedTextMessage?.contextInfo?.stanzaId;
 
       if (quotedStanzaId) {
