@@ -5636,11 +5636,24 @@ const emojiCmd = emojiDoComando(command);
             const db = pokeBatalhaDB();
             const bt = db[chaveBatalha(from)];
             if (!bt) { await sock.sendMessage(from, { text: '❌ Nenhuma batalha rolando aqui!' }, { quoted: msg }); break; }
+            if (bt.fase !== 'luta') { await sock.sendMessage(from, { text: '⚠️ A batalha ainda não começou ou acabou!' }, { quoted: msg }); break; }
+
             const jogadorAtual = bt.vez === 1 ? bt.j1 : bt.j2;
             if (jogadorAtual !== sender) {
               await sock.sendMessage(from, { text: '⏳ Não é sua vez!' }, { quoted: msg });
               break;
             }
+
+            // Pega o número real (phoneNumber) de quem tá atacando e de quem tá defendendo
+            const gm = await sock.groupMetadata(from);
+            const getRealJid = (jid) => {
+              const p = gm.participants.find(x => x.id === jid || x.lid === jid);
+              return p && p.phoneNumber ? p.phoneNumber : jid;
+            };
+
+            const realJ1 = getRealJid(bt.j1);
+            const realJ2 = getRealJid(bt.j2);
+
             const atkNum = parseInt(command.replace('ataque', ''), 10);
             const nomesAtaques = ['Investida 💥', 'Golpe Forte 🥊', 'Ataque Especial ✨'];
             const atkMult = [1, 1.4, 1.8][atkNum - 1];
@@ -5648,8 +5661,8 @@ const emojiCmd = emojiDoComando(command);
 
             const atacante = bt.vez === 1 ? bt.p1 : bt.p2;
             const defensor = bt.vez === 1 ? bt.p2 : bt.p1;
-            const jAtacante = bt.vez === 1 ? bt.j1 : bt.j2;
-            const jDefensor = bt.vez === 1 ? bt.j2 : bt.j1;
+            const jAtacante = bt.vez === 1 ? realJ1 : realJ2;
+            const jDefensor = bt.vez === 1 ? realJ2 : realJ1;
 
             let texto = `🥊 @${jAtacante.split('@')[0]} usou *${nomesAtaques[atkNum - 1]}*!\n`;
 
@@ -5663,17 +5676,15 @@ const emojiCmd = emojiDoComando(command);
               texto += `❤️ ${defensor.nome}: *${defensor.hp}/${defensor.hpMax}*\n`;
             }
 
-            // Confere se morreu
             if (defensor.hp <= 0) {
               const vencedor = jAtacante;
               const perdedor = jDefensor;
-              const uV = pokeUser(vencedor);
-              const uP = pokeUser(perdedor);
+              const uV = pokeUser(bt.vez === 1 ? bt.j1 : bt.j2);
+              const uP = pokeUser(bt.vez === 1 ? bt.j2 : bt.j1);
               uV.pokecoins += 50;
               uV.vitorias += 1;
               uP.derrotas += 1;
 
-              // Sobe level do vencedor, perde poder o perdedor
               const pokeV = uV.time.find(p => p.nome === atacante.nome);
               if (pokeV) ganharXp(pokeV, 80);
               const pokeP = uP.time.find(p => p.nome === defensor.nome);
@@ -5682,20 +5693,20 @@ const emojiCmd = emojiDoComando(command);
                 pokeP.defesa = Math.max(5, Math.floor(pokeP.defesa * 0.95));
                 ajustarFelicidade(pokeP, -10);
               }
-              salvarPokeUser(vencedor, uV);
-              salvarPokeUser(perdedor, uP);
+              salvarPokeUser(bt.vez === 1 ? bt.j1 : bt.j2, uV);
+              salvarPokeUser(bt.vez === 1 ? bt.j2 : bt.j1, uP);
               delete db[chaveBatalha(from)];
               salvarPokeBatalha(db);
 
               await sock.sendMessage(from, {
                 text: texto +
-                      `\n╭━━━〔 🏆 𝐅𝐈𝐌 𝐃𝐄 𝐁𝐀𝐓𝐀𝐋𝐇𝐀 🏆 〕━━━╮\n┃\n` +
+                      `\n╭━━━〔 🏆 𝐅𝐈𝐌 𝐃𝐄 𝐁𝐀𝐓𝐀𝐋𝐇𝐀 〕━━━╮\n┃\n` +
                       `┃ 🥇 Vencedor: @${vencedor.split('@')[0]}\n` +
                       `┃ 💰 Prêmio: *+50* Pokécoins\n` +
                       `┃ ⭐ Seu pokémon ganhou XP!\n┃\n` +
                       `┃ 💀 Perdedor: @${perdedor.split('@')[0]}\n` +
-                      `┃ 📉 Perdeu um pouco de ataque/defesa\n` +
-                      `╰━━━━━━━━━━━━━━━━━━━━━━━━╯`,
+                      `┃ 📉 Perdeu um pouco de status\n` +
+                      `╰━━━━━━━━━━━━━━━━━━━━╯`,
                 mentions: [vencedor, perdedor]
               }, { quoted: msg });
             } else {
@@ -5710,6 +5721,8 @@ const emojiCmd = emojiDoComando(command);
               }, { quoted: msg });
             }
           }
+          break;
+
           break;
 
         case 'desistir':
