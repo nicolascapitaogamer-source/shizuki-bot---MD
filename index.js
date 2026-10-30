@@ -6420,23 +6420,7 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
-        case 'balada':
-          {
-            const u = shizukiUser(sender);
-            if (u.reais < 30) {
-              await sock.sendMessage(from, { text: `💸 Precisa de *R$ 30,00* pra entrar na balada!\n\n💰 Você tem: *${formatarReais(u.reais)}*` }, { quoted: msg });
-              break;
-            }
-            u.reais -= 30;
-            u.felicidade = Math.min(100, (u.felicidade || 50) + 15);
-            u.energia = Math.max(0, u.energia - 10);
-            salvarShizuki(sender, u);
-            await sock.sendMessage(from, {
-              text: `🕺💃 *BALADA!* 🕺💃\n\n🎶 Você curtiu a noite e dançou muito!\n😊 Felicidade: *+15*\n⚡ Energia: *-10*\n💵 Gasto: *-R$ 30,00*\n💰 Saldo: *${formatarReais(u.reais)}*`,
-              mentions: [sender]
-            }, { quoted: msg });
-          }
-          break;
+        
 
         case 'aniversario':
         case 'meuaniversario':
@@ -14087,6 +14071,42 @@ const emojiCmd = emojiDoComando(command);
             } else {
               await sock.sendMessage(from, { text: '⏳ Não é sua vez de escolher ou a batalha não tá nessa fase!' }, { quoted: msg });
             }
+          }
+          break;
+
+        
+        case 'entrada':
+          {
+            const u = shizukiUser(sender);
+            const tipo = (args[0] || '').toLowerCase();
+            
+            // Se não digitar nada, mostra o guia
+            if (!tipo) {
+              const guia = `╭━━━〔 🎟️ 𝐄𝐍𝐓𝐑𝐀𝐃𝐀𝐒 〕━━━╮\n┃\n┃ 💜 Escolha como quer entrar:\n┃\n┃ 🎟️ *!entrada normal*\n┃    ➜ Custa R$ 20,00\n┃    ➜ Interações padrão\n┃\n┃ 👑 *!entrada vip*\n┃    ➜ Custa R$ 50,00\n┃    ➜ Ganhos e felicidade +50%\n┃    ➜ Bebidas com desconto!\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯\n💡 *Use: !entrada vip* (ou normal)`;
+              await sock.sendMessage(from, { text: guia }, { quoted: msg });
+              break;
+            }
+            
+            if (tipo !== 'normal' && tipo !== 'vip') {
+              await sock.sendMessage(from, { text: '⚠️ Use: *!entrada normal* (R$ 20) ou *!entrada vip* (R$ 50)' }, { quoted: msg });
+              break;
+            }
+            
+            const isVip = tipo === 'vip';
+            const custo = isVip ? 50 : 20;
+            
+            if (u.reais < custo) {
+              await sock.sendMessage(from, { text: `💸 Você precisa de R$ ${custo},00 pra entrar!` }, { quoted: msg });
+              break;
+            }
+            
+            u.reais -= custo;
+            salvarShizuki(sender, u);
+            
+            const msgMenu = `╭━━━〔 ${isVip ? '👑 𝐄𝐍𝐓𝐑𝐀𝐃𝐀 𝐕𝐈𝐏' : '🎟️ 𝐄𝐍𝐓𝐑𝐀𝐃𝐀 𝐍𝐎𝐑𝐌𝐀𝐋'} 〕━━━╮\n┃\n┃ ✨ Você pagou R$ ${custo},00 e entrou!\n┃\n┃ 🍻 Agora escolha sua bebida:\n┃\n┃ 🍺 *1.* Cerveja (R$ 15)\n┃ 🍸 *2.* Vodka (R$ 35)\n┃ ⚡ *3.* Energético (R$ 25)\n┃ 🍹 *4.* Gin Tônica (R$ 50)\n┃ 🍏 *5.* Jack de Maçã (R$ 60)\n┃ 🥃 *6.* Whisky 12 Anos (R$ 90)\n┃ 🍾 *7.* Gin de 10 (R$ 10)\n┃ 💧 *8.* Água (R$ 5)\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯\n💡 *Responda com o número da bebida*`;
+            const msgEnviada = await sock.sendMessage(from, { text: msgMenu }, { quoted: msg });
+            
+            baladaAtiva.set(msgEnviada.key.id, { sender, from, vip: isVip });
           }
           break;
 
