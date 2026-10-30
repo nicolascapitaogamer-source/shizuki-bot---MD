@@ -4745,6 +4745,53 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
+        
+        case 'magia':
+          {
+            if (!isGroup) break;
+            const subMagia = (args[0] || '').toLowerCase();
+            const magia = MAGIAS_ARENA[subMagia];
+            if (!magia) {
+              let menu = '╭━━━〔 📖 𝐆𝐑𝐈𝐌𝐎́𝐑𝐈𝐎 〕━━━╮\n┃\n';
+              for (const [id, m] of Object.entries(MAGIAS_ARENA)) {
+                const ef = m.cura ? 'Cura ' + m.cura : 'Dano ' + m.dano;
+                menu += '┃ ' + m.emoji + ' *!magia ' + id + '* ➜ ' + m.nome + ' (' + ef + ' | ' + m.mana + ' Mana)\n';
+              }
+              menu += '┃\n╰━━━━━━━━━━━━━━━━━━━━━━━━╯';
+              await sock.sendMessage(from, { text: menu }, { quoted: msg });
+              break;
+            }
+            const uM = verificarMagiaArena(sender);
+            if (uM.mana < magia.mana) { await sock.sendMessage(from, { text: '💙 Mana insuficiente! (Precisa de ' + magia.mana + ')' }, { quoted: msg }); break; }
+            uM.mana -= magia.mana; salvarMagiaArena(sender, uM);
+            await sock.sendMessage(from, { text: '✨ *' + magia.emoji + ' ' + magia.nome.toUpperCase() + ' LANÇADA!* ✨\n\n💙 Mana: *' + uM.mana + '/' + uM.maxMana + '*' }, { quoted: msg });
+          }
+          break;
+
+        case 'lojaarena':
+          {
+            let txt = '╭━━━〔 🛡️ 𝐋𝐎𝐉𝐀 𝐃𝐀 𝐀𝐑𝐄𝐍𝐀 〕━━━╮\n┃\n';
+            for (const [id, a] of Object.entries(ARMADURAS_ARENA)) { txt += '┃ 🛡️ *' + a.nome + '* ➜ +' + a.defesa + ' Def | ' + a.preco + ' moedas\n'; }
+            txt += '┃\n╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n💡 *Use !comprararmadura <id>*';
+            await sock.sendMessage(from, { text: txt }, { quoted: msg });
+          }
+          break;
+
+        case 'comprararmadura':
+          {
+            const id = (args[0] || '').toLowerCase();
+            const arm = ARMADURAS_ARENA[id];
+            if (!arm) { await sock.sendMessage(from, { text: '⚠️ Armadura inválida! Use !lojaarena' }, { quoted: msg }); break; }
+            const u = pokeUser(sender);
+            if (u.pokecoins < arm.preco) { await sock.sendMessage(from, { text: '💰 Saldo insuficiente!' }, { quoted: msg }); break; }
+            const inv = verificarArmadura(sender);
+            if (inv.inventario.includes(id)) { await sock.sendMessage(from, { text: '⚠️ Você já tem essa armadura!' }, { quoted: msg }); break; }
+            u.pokecoins -= arm.preco; salvarPokeUser(sender, u);
+            inv.inventario.push(id); inv.equipada = id; salvarArmadura(sender, inv);
+            await sock.sendMessage(from, { text: '✅ Você comprou e equipou *' + arm.nome + '*!' }, { quoted: msg });
+          }
+          break;
+
         case 'menu':
         case 'help':
           {
@@ -6598,6 +6645,8 @@ const emojiCmd = emojiDoComando(command);
               '   ┃ 💎 !atacar\n' +
               '   ┃ 💎 !defender\n' +
               '   ┃ 💎 !magia <nome>\n' +
+              '   ┃ 💎 !lojaarena\n' +
+              '   ┃ 💎 !comprararmadura <id>\n' +
               '   ┃ 💎 !desistir\n\n' +
               '╭─ ⟨ 💜 ⟩ ─╮\n' +
               '   💎 VIP: ' + nomeU + ' 💎\n' +
