@@ -1401,20 +1401,24 @@ function formatarPrecoCurto(v) {
 
 function sortearPerguntas(empregoId) {
   const banco = SHIZUKI_DATA.perguntas;
-  const faceis = embaralhar(banco.faceis || []).slice(0, 2);
-  const medias = embaralhar(banco.medias || []).slice(0, 2);
-  const dificeis = embaralhar(banco.dificeis || []).slice(0, 1);
-  const especificas = embaralhar(banco[empregoId] || []).slice(0, 2);
-
-  let todas = [...faceis, ...medias, ...dificeis, ...especificas];
-
-  // Se faltou, completa com aleatórias
-  while (todas.length < SHIZUKI_DATA.perguntasPorProva) {
-    const pool = [...(banco.faceis || []), ...(banco.medias || [])];
-    todas.push(pool[Math.floor(Math.random() * pool.length)]);
+  // Pega todas as perguntas específicas do emprego
+  const especificas = banco[empregoId] || [];
+  
+  // Se não tiver pergunta específica, usa as fáceis como fallback
+  if (especificas.length === 0) {
+    return embaralhar(banco.faceis || []).slice(0, 5);
   }
 
-  return embaralhar(todas).slice(0, SHIZUKI_DATA.perguntasPorProva);
+  // Pega as perguntas específicas e embaralha
+  const perguntas = embaralhar(especificas).slice(0, 5);
+  
+  // Completa com perguntas médias se faltar
+  while (perguntas.length < 5) {
+    const pool = [...(banco.media || []), ...(banco.faceis || [])];
+    perguntas.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  
+  return perguntas;
 }
 
 function montarProvaTexto(emprego, num, total) {
