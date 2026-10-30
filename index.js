@@ -3758,6 +3758,43 @@ async function chamarGroq(mensagem) {
 
 
 
+
+const MAGIAS_ARENA = {
+  fogo: { nome: 'Bola de Fogo', emoji: '🔥', dano: 45, mana: 20 },
+  raio: { nome: 'Raio Elétrico', emoji: '⚡', dano: 65, mana: 35 },
+  cura: { nome: 'Cura Sagrada', emoji: '💚', cura: 50, mana: 30 },
+  gelo: { nome: 'Sopro Congelante', emoji: '❄️', dano: 30, mana: 25, congela: true },
+  veneno: { nome: 'Névoa Tóxica', emoji: '☠️', dano: 20, mana: 15, envenena: true },
+  vento: { nome: 'Lâmina de Vento', emoji: '🌪️', dano: 40, mana: 25, critico: 0.4 },
+  sombra: { nome: 'Drenar Vida', emoji: '🌑', dano: 30, mana: 40, dreno: 15 }
+};
+
+const ARMADURAS_ARENA = {
+  couro: { nome: 'Armadura de Couro', defesa: 10, preco: 200 },
+  malha: { nome: 'Cota de Malha', defesa: 25, preco: 500 },
+  ferro: { nome: 'Escudo de Ferro', defesa: 40, preco: 1000 },
+  ouro: { nome: 'Armadura de Ouro', defesa: 70, preco: 2500 }
+};
+
+function verificarMagiaArena(jid) {
+  const db = carregarJSON('./arena_magias.json');
+  return db[jid] || { mana: 100, maxMana: 100 };
+}
+function salvarMagiaArena(jid, dados) {
+  const db = carregarJSON('./arena_magias.json');
+  db[jid] = dados;
+  salvarJSON('./arena_magias.json', db);
+}
+function verificarArmadura(jid) {
+  const db = carregarJSON('./arena_armaduras.json');
+  return db[jid] || { equipada: null, inventario: [] };
+}
+function salvarArmadura(jid, dados) {
+  const db = carregarJSON('./arena_armaduras.json');
+  db[jid] = dados;
+  salvarJSON('./arena_armaduras.json', db);
+}
+
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
