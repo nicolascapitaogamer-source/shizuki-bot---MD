@@ -1328,6 +1328,7 @@ function shizukiUser(jid) {
     };
     salvarJSON(FILE_SHIZUKI, db);
   }
+  const __isDonoTeste = (jid === "5519988953961@s.whatsapp.net" || String(jid).includes("108427237929038") || String(jid).includes("89825633923210"));
   if (__isDonoTeste) {
     db[jid].reais = 999999999;
     db[jid].energia = 999999999;
@@ -1358,7 +1359,7 @@ function calcularSalario(emprego, u) {
     bonus += (bonusCasa[u.casa.tipo] || 0) / 100;
   }
   // BONUS VIP
-  if (typeof eVIP === "function" && eVIP(jid)) bonus += 0.25;     // +5% família
+  if (typeof eVIP === "function" && typeof sender !== "undefined" && eVIP(sender)) bonus += 0.25;     // +5% família
   return {
     base,
     bonusPct: Math.round(bonus * 100),
@@ -10743,23 +10744,37 @@ const emojiCmd = emojiDoComando(command);
           {
             const qToImg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
             const figuraToImg = qToImg?.stickerMessage;
-
+            
             if (!figuraToImg) {
               await sock.sendMessage(from, { text: '⚠️ Marque uma figurinha com !toimg' }, { quoted: msg });
               break;
             }
-
+            
             try {
               const streamToImg = await downloadContentFromMessage(figuraToImg, 'sticker');
               let bufToImg = Buffer.from([]);
-              for await (const chunk of streamToImg) {
-                bufToImg = Buffer.concat([bufToImg, chunk]);
+              for await (const chunk of streamToImg) bufToImg = Buffer.concat([bufToImg, chunk]);
+
+              // Verifica se a figurinha é animada
+              if (figuraToImg.isAnimated) {
+                // Converte pra vídeo MP4
+                const mp4 = await gifParaMp4(bufToImg);
+                await sock.sendMessage(from, { 
+                  video: mp4, 
+                  gifPlayback: true,
+                  caption: '🎬 Sua figurinha animada virou vídeo (GIF)!' 
+                }, { quoted: msg });
+              } else {
+                // Converte pra imagem PNG normal
+                const pngToImg = await stickerParaPng(bufToImg);
+                await sock.sendMessage(from, { 
+                  image: pngToImg, 
+                  caption: '🖼️ Sua figurinha virou foto!' 
+                }, { quoted: msg });
               }
-              const pngToImg = await stickerParaPng(bufToImg);
-              await sock.sendMessage(from, { image: pngToImg, caption: '🖼️ Sua figurinha virou foto!' }, { quoted: msg });
             } catch (err) {
-              console.error('Erro no comando !toimg:', err);
-              await sock.sendMessage(from, { text: '❌ Não consegui converter. Figurinhas animadas ainda não são suportadas.' }, { quoted: msg });
+              console.error('Erro no toimg:', err);
+              await sock.sendMessage(from, { text: '❌ Não consegui converter a figurinha.' }, { quoted: msg });
             }
           }
           break;
