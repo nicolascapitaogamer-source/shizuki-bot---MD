@@ -3756,6 +3756,34 @@ async function chamarGroq(mensagem) {
 }
 // ===== FIM SISTEMA DE IA =====
 
+
+function webpParaMp4(buffer) {
+  return new Promise((resolve, reject) => {
+    const id = Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const entrada = `./tmp_${id}.webp`;
+    const saida = `./tmp_${id}.mp4`;
+    fs.writeFileSync(entrada, buffer);
+    execFile('ffmpeg', [
+      '-y', 
+      '-i', entrada, 
+      '-movflags', 'faststart', 
+      '-pix_fmt', 'yuv420p', 
+      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+      '-an', 
+      saida
+    ], { timeout: 60000 }, (err) => {
+      try { fs.unlinkSync(entrada); } catch (e) {}
+      if (err) {
+        try { fs.unlinkSync(saida); } catch (e) {}
+        return reject(err);
+      }
+      const out = fs.readFileSync(saida);
+      try { fs.unlinkSync(saida); } catch (e) {}
+      resolve(out);
+    });
+  });
+}
+
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
@@ -10755,17 +10783,15 @@ const emojiCmd = emojiDoComando(command);
               let bufToImg = Buffer.from([]);
               for await (const chunk of streamToImg) bufToImg = Buffer.concat([bufToImg, chunk]);
 
-              // Verifica se a figurinha é animada
+              // Se for animada, converte pra vídeo
               if (figuraToImg.isAnimated) {
-                // Converte pra vídeo MP4
-                const mp4 = await gifParaMp4(bufToImg);
+                const mp4 = await webpParaMp4(bufToImg);
                 await sock.sendMessage(from, { 
                   video: mp4, 
                   gifPlayback: true,
-                  caption: '🎬 Sua figurinha animada virou vídeo (GIF)!' 
+                  caption: '🎬 Sua figurinha animada virou vídeo!' 
                 }, { quoted: msg });
               } else {
-                // Converte pra imagem PNG normal
                 const pngToImg = await stickerParaPng(bufToImg);
                 await sock.sendMessage(from, { 
                   image: pngToImg, 
@@ -10774,7 +10800,7 @@ const emojiCmd = emojiDoComando(command);
               }
             } catch (err) {
               console.error('Erro no toimg:', err);
-              await sock.sendMessage(from, { text: '❌ Não consegui converter a figurinha.' }, { quoted: msg });
+              await sock.sendMessage(from, { text: '❌ Não consegui converter.' }, { quoted: msg });
             }
           }
           break;
