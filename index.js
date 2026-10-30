@@ -3758,47 +3758,6 @@ async function chamarGroq(mensagem) {
 
 
 
-async function webpParaMp4(buffer) {
-  const sharp = (await import('sharp')).default;
-  return new Promise(async (resolve, reject) => {
-    const id = Date.now() + '_' + Math.floor(Math.random() * 1000);
-    const entrada = `./tmp_${id}.webp`;
-    const gifSaida = `./tmp_${id}.gif`;
-    const mp4Saida = `./tmp_${id}.mp4`;
-    
-    fs.writeFileSync(entrada, buffer);
-    
-    try {
-      // Converte o WebP animado para GIF usando Sharp
-      await sharp(entrada, { animated: true }).gif().toFile(gifSaida);
-      
-      // Agora converte o GIF para MP4 usando FFmpeg
-      execFile('ffmpeg', [
-        '-y', '-i', gifSaida, 
-        '-movflags', 'faststart', 
-        '-pix_fmt', 'yuv420p', 
-        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
-        '-an', mp4Saida
-      ], { timeout: 60000 }, (err) => {
-        try { fs.unlinkSync(entrada); } catch (e) {}
-        try { fs.unlinkSync(gifSaida); } catch (e) {}
-        
-        if (err) {
-          try { fs.unlinkSync(mp4Saida); } catch (e) {}
-          return reject(err);
-        }
-        const out = fs.readFileSync(mp4Saida);
-        try { fs.unlinkSync(mp4Saida); } catch (e) {}
-        resolve(out);
-      });
-    } catch (e) {
-      try { fs.unlinkSync(entrada); } catch (err) {}
-      try { fs.unlinkSync(gifSaida); } catch (err) {}
-      reject(e);
-    }
-  });
-}
-
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
@@ -10787,35 +10746,19 @@ const emojiCmd = emojiDoComando(command);
           {
             const qToImg = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
             const figuraToImg = qToImg?.stickerMessage;
-            
             if (!figuraToImg) {
               await sock.sendMessage(from, { text: '⚠️ Marque uma figurinha com !toimg' }, { quoted: msg });
               break;
             }
-            
             try {
               const streamToImg = await downloadContentFromMessage(figuraToImg, 'sticker');
               let bufToImg = Buffer.from([]);
               for await (const chunk of streamToImg) bufToImg = Buffer.concat([bufToImg, chunk]);
-
-              // Se for animada, converte pra vídeo
-              if (figuraToImg.isAnimated) {
-                const mp4 = await webpParaMp4(bufToImg);
-                await sock.sendMessage(from, { 
-                  video: mp4, 
-                  gifPlayback: true,
-                  caption: '🎬 Sua figurinha animada virou vídeo!' 
-                }, { quoted: msg });
-              } else {
-                const pngToImg = await stickerParaPng(bufToImg);
-                await sock.sendMessage(from, { 
-                  image: pngToImg, 
-                  caption: '🖼️ Sua figurinha virou foto!' 
-                }, { quoted: msg });
-              }
+              const pngToImg = await stickerParaPng(bufToImg);
+              await sock.sendMessage(from, { image: pngToImg, caption: '🖼️ Sua figurinha virou foto!' }, { quoted: msg });
             } catch (err) {
               console.error('Erro no toimg:', err);
-              await sock.sendMessage(from, { text: '❌ Não consegui converter.' }, { quoted: msg });
+              await sock.sendMessage(from, { text: '❌ Não consegui converter. Figurinhas animadas ainda não são suportadas.' }, { quoted: msg });
             }
           }
           break;
