@@ -1400,25 +1400,27 @@ function formatarPrecoCurto(v) {
 // ─────────────── Prova ───────────────
 
 function sortearPerguntas(empregoId) {
-  const banco = SHIZUKI_DATA.perguntas;
-  // Pega todas as perguntas específicas do emprego
+  const banco = SHIZUKI_DATA.perguntas || {};
   const especificas = banco[empregoId] || [];
-  
-  // Se não tiver pergunta específica, usa as fáceis como fallback
-  if (especificas.length === 0) {
-    return embaralhar(banco.faceis || []).slice(0, 5);
+
+  // Se tem perguntas específicas, usa elas
+  if (especificas.length > 0) {
+    return embaralhar(especificas).slice(0, 5).map(p => {
+      // Gera alternativas falsas aleatórias se não tiver
+      const correta = p.r[0];
+      const falsas = ['Nenhuma das opções', 'Não sei', 'Outra alternativa'].filter(x => x !== correta);
+      const alternativas = embaralhar([correta, ...falsas.slice(0, 3)]);
+      return { p: p.p, r: p.r, alternativas };
+    });
   }
 
-  // Pega as perguntas específicas e embaralha
-  const perguntas = embaralhar(especificas).slice(0, 5);
-  
-  // Completa com perguntas médias se faltar
-  while (perguntas.length < 5) {
-    const pool = [...(banco.media || []), ...(banco.faceis || [])];
-    perguntas.push(pool[Math.floor(Math.random() * pool.length)]);
-  }
-  
-  return perguntas;
+  // Fallback (se não tiver específica)
+  return embaralhar(banco.faceis || []).slice(0, 5).map(p => {
+    const correta = p.r[0];
+    const falsas = ['Nenhuma das opções', 'Não sei', 'Outra alternativa'].filter(x => x !== correta);
+    const alternativas = embaralhar([correta, ...falsas.slice(0, 3)]);
+    return { p: p.p, r: p.r, alternativas };
+  });
 }
 
 function montarProvaTexto(emprego, num, total) {
@@ -6325,14 +6327,15 @@ const emojiCmd = emojiDoComando(command);
               todasPerguntas.push(pool[Math.floor(Math.random() * pool.length)]);
             }
             const perguntas = todasPerguntas.slice(0, 7).map(p => {
-              const respostaCerta = p.r[0];
-              const poolErradas = [
-                ...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])
-              ].map(x => x.r[0]).filter(x => x !== respostaCerta);
-              const erradas = embaralhar(poolErradas).slice(0, 3);
-              const alternativas = embaralhar([respostaCerta, ...erradas]);
-              return { p: p.p, r: p.r, alternativas };
-            });
+    // Se p.r não existir, a gente cria uma resposta padrão
+    const respostaCerta = p.r ? p.r[0] : (p.r ? p.r : 'Resposta');
+    const poolErradas = [
+      ...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])
+    ].map(x => x.r ? x.r[0] : 'Errada').filter(x => x !== respostaCerta);
+    const erradas = embaralhar(poolErradas).slice(0, 3);
+    const alternativas = embaralhar([respostaCerta, ...erradas]);
+    return { p: p.p, r: p.r || [respostaCerta], alternativas };
+  });
 
             const prova = {
               empregoId: emprego.id,
