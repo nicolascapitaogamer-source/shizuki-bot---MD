@@ -4347,17 +4347,21 @@ async function connectToWhatsApp() {
       // ===== FIM SISTEMA AFK =====
 
       
+          
       // ===== DETECTOR BALADA =====
-      const ctxBalada = msg.message.extendedTextMessage?.contextInfo;
-      if (ctxBalada) {
-        const baladaDB = carregarJSON('./balada_ativa.json');
-        const dadosBalada = baladaDB[ctxBalada.stanzaId];
+      try {
+        const bDB = carregarJSON('./balada_ativa.json');
+        // Procura se o SENDER tem uma balada ativa
+        const baladaSessao = Object.keys(bDB).find(k => bDB[k].sender === sender);
         
-        if (dadosBalada && dadosBalada.sender === sender) {
+        if (baladaSessao) {
+          const dadosBalada = bDB[baladaSessao];
           const escolha = text.trim();
+          
           if (['1', '2', '3', '4', '5', '6', '7', '8'].includes(escolha)) {
-            delete baladaDB[ctxBalada.stanzaId];
-            salvarJSON('./balada_ativa.json', baladaDB);
+            // Apaga a sessão ativa
+            delete bDB[baladaSessao];
+            salvarJSON('./balada_ativa.json', bDB);
             
             const u = shizukiUser(sender);
             let custoBebida = 0, bebida = '';
@@ -4415,7 +4419,7 @@ async function connectToWhatsApp() {
             continue;
           }
         }
-      }
+      } catch (e) { console.error('Erro no detector balada:', e); }
       // ===== FIM DETECTOR BALADA =====
 
       const quotedStanzaId = msg.message.extendedTextMessage?.contextInfo?.stanzaId;
