@@ -4346,6 +4346,78 @@ async function connectToWhatsApp() {
       }
       // ===== FIM SISTEMA AFK =====
 
+      
+      // ===== DETECTOR BALADA =====
+      const ctxBalada = msg.message.extendedTextMessage?.contextInfo;
+      if (ctxBalada) {
+        const baladaDB = carregarJSON('./balada_ativa.json');
+        const dadosBalada = baladaDB[ctxBalada.stanzaId];
+        
+        if (dadosBalada && dadosBalada.sender === sender) {
+          const escolha = text.trim();
+          if (['1', '2', '3', '4', '5', '6', '7', '8'].includes(escolha)) {
+            delete baladaDB[ctxBalada.stanzaId];
+            salvarJSON('./balada_ativa.json', baladaDB);
+            
+            const u = shizukiUser(sender);
+            let custoBebida = 0, bebida = '';
+            
+            if (escolha === '1') { custoBebida = 15; bebida = 'Cerveja 🍺'; }
+            if (escolha === '2') { custoBebida = 35; bebida = 'Vodka 🍸'; }
+            if (escolha === '3') { custoBebida = 25; bebida = 'Energético ⚡'; }
+            if (escolha === '4') { custoBebida = 50; bebida = 'Gin Tônica 🍹'; }
+            if (escolha === '5') { custoBebida = 60; bebida = 'Jack de Maçã 🍏'; }
+            if (escolha === '6') { custoBebida = 90; bebida = 'Whisky 12 Anos 🥃'; }
+            if (escolha === '7') { custoBebida = 10; bebida = 'Gin de 10 🍾'; }
+            if (escolha === '8') { custoBebida = 5; bebida = 'Água 💧'; }
+            
+            if (dadosBalada.vip) custoBebida = Math.floor(custoBebida * 0.8);
+            u.reais -= custoBebida;
+            
+            const interacoes = [
+              { texto: '💃 A Rihanna te viu e mandou um beijo!', efeito: 'felicidade', valor: 20 },
+              { texto: '👱‍♀️ A loira do VIP pediu uma bebida caríssima e você pagou.', efeito: 'dinheiro', valor: -100 },
+              { texto: '🤢 Um bêbado te derrubou e derramou cerveja em você.', efeito: 'energia', valor: -20 },
+              { texto: '💅 A patricinha te chamou pra dançar e você arrasou!', efeito: 'felicidade', valor: 20 },
+              { texto: '💪 O segurança te confundiu com um artista e te levou pro VIP!', efeito: 'sorte', valor: 150 },
+              { texto: '🎧 A DJ tocou sua música favorita e você dançou até o chão!', efeito: 'felicidade', valor: 15 },
+              { texto: '👯 Duas gêmeas te chamaram pra dançar!', efeito: 'felicidade', valor: 30 },
+              { texto: '💍 Um cara bêbado achou que você era a ex dele e começou uma briga.', efeito: 'dinheiro', valor: -50 },
+              { texto: '🍾 Você ganhou uma garrafa de champanhe e vendeu!', efeito: 'sorte', valor: 200 },
+              { texto: '🕺 Um dançarino profissional te ensinou uns passos!', efeito: 'felicidade', valor: 25 },
+              { texto: '👮 A polícia deu batida e você subornou.', efeito: 'dinheiro', valor: -100 },
+              { texto: '📱 Você conheceu um investidor e ganhou uma dica!', efeito: 'sorte', valor: 300 },
+              { texto: '🤮 Você passou mal e foi de táxi.', efeito: 'mix', valor: 0 },
+              { texto: '🔥 A festa pegou fogo!', efeito: 'energia', valor: -30 }
+            ];
+            
+            const fatorVip = dadosBalada.vip ? 1.5 : 1;
+            const interacao = interacoes[Math.floor(Math.random() * interacoes.length)];
+            let textoInteracao = interacao.texto;
+            
+            if (interacao.efeito === 'dinheiro') { u.reais += (interacao.valor * fatorVip); }
+            if (interacao.efeito === 'energia') { u.energia = Math.max(0, u.energia + interacao.valor); }
+            if (interacao.efeito === 'felicidade') { u.felicidade = Math.min(100, (u.felicidade || 50) + (interacao.valor * fatorVip)); }
+            if (interacao.efeito === 'sorte') { u.reais += (interacao.valor * fatorVip); }
+            if (interacao.efeito === 'mix') { u.reais -= 40; u.energia = Math.max(0, u.energia - 20); }
+            
+            const res = Math.random();
+            let resultadoFinal = '';
+            if (res < 0.4) { resultadoFinal = '🥴 Você bebeu demais e acordou de ressaca (-30 energia).'; u.energia = Math.max(0, u.energia - 30); }
+            else if (res < 0.8) { resultadoFinal = '✨ Você aproveitou muito a noite e fez novas amizades!'; u.felicidade = Math.min(100, (u.felicidade || 50) + 10); }
+            else { resultadoFinal = '😴 A festa tava boa, mas você foi embora cedo.'; }
+            
+            salvarShizuki(sender, u);
+            
+            await sock.sendMessage(from, { 
+              text: `╭━━━〔 🌅 𝐅𝐈𝐌 𝐃𝐀 𝐁𝐀𝐋𝐀𝐃𝐀 ${dadosBalada.vip ? '𝐕𝐈𝐏' : ''} 〕━━━╮\n┃\n┃ ${bebida}\n┃\n┃ ${textoInteracao}\n┃\n┃ ${resultadoFinal}\n┃\n┃ 💰 Saldo: R$ ${u.reais.toFixed(2)}\n┃ ⚡ Energia: ${u.energia}/100\n┃ 🎭 Felicidade: ${u.felicidade || 50}/100\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯` 
+            }, { quoted: msg });
+            continue;
+          }
+        }
+      }
+      // ===== FIM DETECTOR BALADA =====
+
       const quotedStanzaId = msg.message.extendedTextMessage?.contextInfo?.stanzaId;
 
       if (quotedStanzaId) {
@@ -4820,7 +4892,10 @@ const emojiCmd = emojiDoComando(command);
             const msgMenu = `╭━━━〔 ${isVip ? '👑 𝐄𝐍𝐓𝐑𝐀𝐃𝐀 𝐕𝐈𝐏' : '🎟️ 𝐄𝐍𝐓𝐑𝐀𝐃𝐀 𝐍𝐎𝐑𝐌𝐀𝐋'} 〕━━━╮\n┃\n┃ ✨ Você pagou R$ ${custo},00 e entrou!\n┃\n┃ 🍻 Agora escolha sua bebida:\n┃\n┃ 🍺 *1.* Cerveja (R$ 15)\n┃ 🍸 *2.* Vodka (R$ 35)\n┃ ⚡ *3.* Energético (R$ 25)\n┃ 🍹 *4.* Gin Tônica (R$ 50)\n┃ 🍏 *5.* Jack de Maçã (R$ 60)\n┃ 🥃 *6.* Whisky 12 Anos (R$ 90)\n┃ 🍾 *7.* Gin de 10 (R$ 10)\n┃ 💧 *8.* Água (R$ 5)\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯\n💡 *Marque esta mensagem e responda com o número da bebida*\n*Ex: 1*`;
             const msgEnviada = await sock.sendMessage(from, { text: msgMenu }, { quoted: msg });
             
-            baladaAtiva.set(msgEnviada.key.id, { sender, from, vip: isVip });
+            // Salva no JSON em vez do Map
+            const baladaDB = carregarJSON('./balada_ativa.json');
+            baladaDB[msgEnviada.key.id] = { sender, from, vip: isVip };
+            salvarJSON('./balada_ativa.json', baladaDB);
           }
           break;
 
