@@ -3773,6 +3773,9 @@ function salvarArmadura(jid, dados) {
 const baladaAtiva = new Map();
 
 
+
+
+
 if (!globalThis.__shizukiEventosTimer) {
   globalThis.__shizukiEventosTimer = setInterval(async () => {
     try {
