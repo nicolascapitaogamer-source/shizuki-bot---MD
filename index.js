@@ -3776,6 +3776,9 @@ const baladaAtiva = new Map();
 
 
 
+
+
+
 if (!globalThis.__shizukiEventosTimer) {
   globalThis.__shizukiEventosTimer = setInterval(async () => {
     try {
@@ -3783,7 +3786,7 @@ if (!globalThis.__shizukiEventosTimer) {
       if (!sock) return;
       const db = carregarJSON('./shizuki_eventos.json');
       const agora = Date.now();
-      const INTERVALO = 30 * 60 * 1000;
+      const INTERVALO = 5 * 60 * 1000;
       
       for (const grupo of Object.keys(db)) {
         const info = db[grupo];
@@ -3791,23 +3794,53 @@ if (!globalThis.__shizukiEventosTimer) {
         if (agora - (info.ultimoEvento || 0) < INTERVALO) continue;
         
         info.ultimoEvento = agora;
-        salvarJSON('./shizuki_eventos.json', db);
+        info.participantes = [];
         
         const eventos = [
-          { nome: '🛌 FESTA DO PIJAMA', msg: 'Use *!participar* pra ganhar +20 energia.' },
-          { nome: '🏠 FESTA NA CASA DO AMIGO', msg: 'Use *!participar* pra ganhar uns trocados.' },
-          { nome: '🎃 HALLOWEEN', msg: 'Use *!participar* e ganhe R$ 200.' },
-          { nome: '🎄 NATAL', msg: 'Use *!participar* pra ganhar R$ 300.' },
-          { nome: '🏖️ PRAIA', msg: 'Use *!participar* e ganhe R$ 100.' }
+          { nome: '🛌 FESTA DO PIJAMA', msg: 'Use *!participar* pra ganhar +20 energia.', custo: 0, premio: 'energia_20' },
+          { nome: '🏠 FESTA NA CASA DO AMIGO', msg: 'Use *!participar* pra ganhar R$ 40.', custo: 0, premio: 'reais_40' },
+          { nome: '🍔 CHURRASCO', msg: 'Paga R$ 20 pra ganhar R$ 100.', custo: 20, premio: 'reais_100' },
+          { nome: '🎂 FESTA DE ANIVERSÁRIO', msg: 'Use *!participar* e ganhe R$ 50.', custo: 0, premio: 'reais_50' },
+          { nome: '🍻 HAPPY HOUR', msg: 'Paga R$ 15 pra ganhar R$ 130.', custo: 15, premio: 'reais_130' },
+          { nome: '🎤 KARAOKÊ', msg: 'Paga R$ 10 pra ganhar R$ 70.', custo: 10, premio: 'reais_70' },
+          { nome: '🎬 CINEMA', msg: 'Paga R$ 25 pra ganhar +15 energia e R$ 30.', custo: 25, premio: 'mix_cinema' },
+          { nome: '🛍️ SHOPPING', msg: 'Use *!participar* e ganhe R$ 45.', custo: 0, premio: 'reais_45' },
+          { nome: '🎨 EXPOSIÇÃO DE ARTE', msg: 'Use *!participar* e ganhe R$ 35.', custo: 0, premio: 'reais_35' },
+          { nome: '📚 FEIRA DO LIVRO', msg: 'Use *!participar* e ganhe R$ 30.', custo: 0, premio: 'reais_30' },
+          { nome: '🛒 FEIRA LIVRE', msg: 'Use *!participar* e ganhe R$ 40.', custo: 0, premio: 'reais_40' },
+          { nome: '🎃 HALLOWEEN', msg: 'Use *!participar* e ganhe R$ 80.', custo: 0, premio: 'reais_80' },
+          { nome: '🎄 NATAL', msg: 'Use *!participar* pra ganhar R$ 100.', custo: 0, premio: 'reais_100' },
+          { nome: '🏖️ PRAIA', msg: 'Use *!participar* e ganhe R$ 50.', custo: 0, premio: 'reais_50' },
+          { nome: '🛹 SKATE NO PARQUE', msg: 'Use *!participar* pra ganhar +15 energia.', custo: 0, premio: 'energia_15' },
+          { nome: '🧘 YOGA NO PARQUE', msg: 'Use *!participar* pra ganhar +20 energia.', custo: 0, premio: 'energia_20' },
+          { nome: '🌊 SURF', msg: 'Paga R$ 10 pra ganhar +15 energia e R$ 20.', custo: 10, premio: 'mix_surf' },
+          { nome: '🎮 TORNEIO DE GAMES', msg: 'Paga R$ 30 pra ganhar R$ 200.', custo: 30, premio: 'reais_200' },
+          { nome: '🏆 CAMPEONATO DE FUTEBOL', msg: 'Paga R$ 20 pra ganhar R$ 150.', custo: 20, premio: 'reais_150' },
+          { nome: '🎪 CIRCO', msg: 'Paga R$ 15 pra ganhar R$ 100.', custo: 15, premio: 'reais_100' },
+          { nome: '🎢 PARQUE DE DIVERSÕES', msg: 'Paga R$ 30 pra ganhar R$ 150 e +10 energia.', custo: 30, premio: 'mix_parque' },
+          { nome: '🍣 RODÍZIO DE SUSHI', msg: 'Paga R$ 40 pra ganhar R$ 180.', custo: 40, premio: 'reais_180' },
+          { nome: '🎲 CASSINO', msg: 'Paga R$ 50 e tente ganhar R$ 300.', custo: 50, premio: 'cassino' },
+          { nome: '🏋️ ACADEMIA', msg: 'Paga R$ 10 pra ganhar +20 energia.', custo: 10, premio: 'energia_20' },
+          { nome: '🏊 NATAÇÃO', msg: 'Use *!participar* pra ganhar +15 energia.', custo: 0, premio: 'energia_15' },
+          { nome: '🍕 NOITE DA PIZZA', msg: 'Paga R$ 25 pra ganhar R$ 80 e +5 energia.', custo: 25, premio: 'mix_pizza' },
+          { nome: '🎯 LASER TAG', msg: 'Paga R$ 20 pra ganhar R$ 100.', custo: 20, premio: 'reais_100' },
+          { nome: '🏕️ ACAMPAMENTO', msg: 'Use *!participar* pra ganhar R$ 35 e +10 energia.', custo: 0, premio: 'mix_acampa' },
+          { nome: '🎨 PINTURA EM TELA', msg: 'Use *!participar* pra ganhar R$ 30.', custo: 0, premio: 'reais_30' },
+          { nome: '🚀 VIAGEM ESPACIAL', msg: 'Paga R$ 100 pra ganhar R$ 400.', custo: 100, premio: 'reais_400' }
         ];
         
         const ev = eventos[Math.floor(Math.random() * eventos.length)];
+        info.ultimoEventoNome = ev.nome;
+        info.ultimoEventoCusto = ev.custo;
+        info.ultimoEventoPremio = ev.premio;
+        
         try {
           await sock.sendMessage(grupo, { 
             text: `╭━━━〔 🎊 𝐄𝐕𝐄𝐍𝐓𝐎 🎊 〕━━━╮\n┃\n┃ ${ev.nome}\n┃\n┃ ${ev.msg}\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯` 
           });
         } catch (e) {}
       }
+      salvarJSON('./shizuki_eventos.json', db);
     } catch (err) { console.error('Erro timer eventos:', err); }
   }, 60000);
 }
