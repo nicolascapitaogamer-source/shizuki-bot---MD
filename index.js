@@ -14110,6 +14110,15 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
+        
+        case 'balada':
+          {
+            const u = shizukiUser(sender);
+            const msgMenu = `╭━━━〔 🎉 𝐁𝐀𝐋𝐀𝐃𝐀 🎉 〕━━━╮\n┃\n┃ 🚪 *Escolha seu acesso:*\n┃\n┃ 🎟️ *!entrada normal*\n┃    ➜ Entrada Comum (R$ 20)\n┃\n┃ 👑 *!entrada vip*\n┃    ➜ Entrada VIP (R$ 50)\n┃    ➜ Bebidas com 20% de desconto!\n┃    ➜ Bônus em tudo!\n┃\n┃ 💰 Seu saldo: R$ ${u.reais.toFixed(2)}\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`;
+            await sock.sendMessage(from, { text: msgMenu }, { quoted: msg });
+          }
+          break;
+
         default:
           if (command === 'nuke') {
             if (!isGroup) {
