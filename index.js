@@ -2111,31 +2111,6 @@ if (!globalThis.__pokeSpawnTimer) {
 //         SHIZUKI CITY — TIMER DE EVENTOS E ANIVERSÁRIOS
 // ═══════════════════════════════════════════════════════════
 
-if (!globalThis.__shizukiEventosTimer) {
-  globalThis.__shizukiEventosTimer = setInterval(async () => {
-    try {
-      const sock = globalThis.__sockAtual;
-      if (!sock) return;
-      const db = carregarJSON('./shizuki_eventos.json');
-      const agora = Date.now();
-      const INTERVALO = 30 * 60 * 1000;
-      for (const grupo of Object.keys(db)) {
-        const info = db[grupo];
-        if (!info || !info.ativo) continue;
-        if (agora - (info.ultimoEvento || 0) < INTERVALO) continue;
-        info.ultimoEvento = agora;
-        salvarJSON('./shizuki_eventos.json', db);
-        const eventos = [
-          '🎉 *FESTA NA CIDADE!*\n\nCorre que é por tempo limitado! Use *!balada* 💜',
-          '🕺 *BALADA ABERTA!*\n\nA noite tá quente! Vai lá: *!balada* 💜',
-          '🎁 *DIA DE SORTE!*\n\nUm morador pode ganhar R$ 500 do nada! Tenta a sorte!'
-        ];
-        const txt = eventos[Math.floor(Math.random() * eventos.length)];
-        try { await sock.sendMessage(grupo, { text: txt }); } catch (e) {}
-      }
-    } catch (err) { console.error('Erro timer eventos:', err); }
-  }, 60000);
-}
 
 // FIX ANIVERSARIO
 if (!globalThis.__shizukiAniverTimer) {
@@ -3796,6 +3771,43 @@ function salvarArmadura(jid, dados) {
 }
 
 const baladaAtiva = new Map();
+
+
+if (!globalThis.__shizukiEventosTimer) {
+  globalThis.__shizukiEventosTimer = setInterval(async () => {
+    try {
+      const sock = globalThis.__sockAtual;
+      if (!sock) return;
+      const db = carregarJSON('./shizuki_eventos.json');
+      const agora = Date.now();
+      const INTERVALO = 30 * 60 * 1000;
+      
+      for (const grupo of Object.keys(db)) {
+        const info = db[grupo];
+        if (!info || !info.ativo) continue;
+        if (agora - (info.ultimoEvento || 0) < INTERVALO) continue;
+        
+        info.ultimoEvento = agora;
+        salvarJSON('./shizuki_eventos.json', db);
+        
+        const eventos = [
+          { nome: '🛌 FESTA DO PIJAMA', msg: 'Use *!participar* pra ganhar +20 energia.' },
+          { nome: '🏠 FESTA NA CASA DO AMIGO', msg: 'Use *!participar* pra ganhar uns trocados.' },
+          { nome: '🎃 HALLOWEEN', msg: 'Use *!participar* e ganhe R$ 200.' },
+          { nome: '🎄 NATAL', msg: 'Use *!participar* pra ganhar R$ 300.' },
+          { nome: '🏖️ PRAIA', msg: 'Use *!participar* e ganhe R$ 100.' }
+        ];
+        
+        const ev = eventos[Math.floor(Math.random() * eventos.length)];
+        try {
+          await sock.sendMessage(grupo, { 
+            text: `╭━━━〔 🎊 𝐄𝐕𝐄𝐍𝐓𝐎 🎊 〕━━━╮\n┃\n┃ ${ev.nome}\n┃\n┃ ${ev.msg}\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯` 
+          });
+        } catch (e) {}
+      }
+    } catch (err) { console.error('Erro timer eventos:', err); }
+  }, 60000);
+}
 
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
