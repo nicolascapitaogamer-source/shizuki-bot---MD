@@ -3795,6 +3795,8 @@ function salvarArmadura(jid, dados) {
   salvarJSON('./arena_armaduras.json', db);
 }
 
+const baladaAtiva = new Map();
+
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
