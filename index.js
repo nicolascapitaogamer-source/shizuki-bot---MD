@@ -3757,30 +3757,45 @@ async function chamarGroq(mensagem) {
 // ===== FIM SISTEMA DE IA =====
 
 
-function webpParaMp4(buffer) {
-  return new Promise((resolve, reject) => {
+
+async function webpParaMp4(buffer) {
+  const sharp = (await import('sharp')).default;
+  return new Promise(async (resolve, reject) => {
     const id = Date.now() + '_' + Math.floor(Math.random() * 1000);
     const entrada = `./tmp_${id}.webp`;
-    const saida = `./tmp_${id}.mp4`;
+    const gifSaida = `./tmp_${id}.gif`;
+    const mp4Saida = `./tmp_${id}.mp4`;
+    
     fs.writeFileSync(entrada, buffer);
-    execFile('ffmpeg', [
-      '-y', 
-      '-i', entrada, 
-      '-movflags', 'faststart', 
-      '-pix_fmt', 'yuv420p', 
-      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
-      '-an', 
-      saida
-    ], { timeout: 60000 }, (err) => {
-      try { fs.unlinkSync(entrada); } catch (e) {}
-      if (err) {
-        try { fs.unlinkSync(saida); } catch (e) {}
-        return reject(err);
-      }
-      const out = fs.readFileSync(saida);
-      try { fs.unlinkSync(saida); } catch (e) {}
-      resolve(out);
-    });
+    
+    try {
+      // Converte o WebP animado para GIF usando Sharp
+      await sharp(entrada, { animated: true }).gif().toFile(gifSaida);
+      
+      // Agora converte o GIF para MP4 usando FFmpeg
+      execFile('ffmpeg', [
+        '-y', '-i', gifSaida, 
+        '-movflags', 'faststart', 
+        '-pix_fmt', 'yuv420p', 
+        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+        '-an', mp4Saida
+      ], { timeout: 60000 }, (err) => {
+        try { fs.unlinkSync(entrada); } catch (e) {}
+        try { fs.unlinkSync(gifSaida); } catch (e) {}
+        
+        if (err) {
+          try { fs.unlinkSync(mp4Saida); } catch (e) {}
+          return reject(err);
+        }
+        const out = fs.readFileSync(mp4Saida);
+        try { fs.unlinkSync(mp4Saida); } catch (e) {}
+        resolve(out);
+      });
+    } catch (e) {
+      try { fs.unlinkSync(entrada); } catch (err) {}
+      try { fs.unlinkSync(gifSaida); } catch (err) {}
+      reject(e);
+    }
   });
 }
 
