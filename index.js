@@ -4918,6 +4918,38 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
+        
+        case 'participar':
+          {
+            const u = shizukiUser(sender);
+            const db = carregarJSON('./shizuki_eventos.json');
+            const evAtivo = db[from];
+            
+            if (!evAtivo || !evAtivo.ativo) {
+              await sock.sendMessage(from, { text: '❌ Não tem nenhum evento rolando agora!' }, { quoted: msg });
+              break;
+            }
+            
+            if (evAtivo.participantes && evAtivo.participantes.includes(sender)) {
+              await sock.sendMessage(from, { text: '⚠️ Você já participou desse evento!' }, { quoted: msg });
+              break;
+            }
+            
+            if (!evAtivo.participantes) evAtivo.participantes = [];
+            evAtivo.participantes.push(sender);
+            salvarJSON('./shizuki_eventos.json', db);
+            
+            const recompensa = Math.floor(Math.random() * 200) + 50;
+            u.reais += recompensa;
+            salvarShizuki(sender, u);
+            
+            await sock.sendMessage(from, { 
+              text: `🎉 @${sender.split('@')[0]} participou do evento!\n\n💰 Você ganhou *R$ ${recompensa},00* de recompensa!\n💜 Saldo: *R$ ${u.reais.toFixed(2)}*`,
+              mentions: [sender]
+            }, { quoted: msg });
+          }
+          break;
+
         case 'menu':
         case 'help':
           {
