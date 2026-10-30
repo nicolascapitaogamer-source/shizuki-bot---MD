@@ -1,0 +1,323 @@
+{
+  "empregos": [
+    {
+      "id": "reciclador",
+      "nome": "Reciclador",
+      "emoji": "🗑️",
+      "salarioMin": 15,
+      "salarioMax": 40,
+      "notaMinima": 0,
+      "nivel": 1
+    },
+    {
+      "id": "gari",
+      "nome": "Gari",
+      "emoji": "🧹",
+      "salarioMin": 30,
+      "salarioMax": 70,
+      "notaMinima": 0,
+      "nivel": 1
+    },
+    {
+      "id": "atendente",
+      "nome": "Atendente",
+      "emoji": "🍔",
+      "salarioMin": 50,
+      "salarioMax": 100,
+      "notaMinima": 50,
+      "nivel": 2
+    },
+    {
+      "id": "motorista",
+      "nome": "Motorista",
+      "emoji": "🚗",
+      "salarioMin": 100,
+      "salarioMax": 180,
+      "notaMinima": 60,
+      "nivel": 2
+    },
+    {
+      "id": "cozinheiro",
+      "nome": "Cozinheiro",
+      "emoji": "🍳",
+      "salarioMin": 120,
+      "salarioMax": 200,
+      "notaMinima": 60,
+      "nivel": 2
+    },
+    {
+      "id": "veterinario",
+      "nome": "Veterinário",
+      "emoji": "🐶",
+      "salarioMin": 250,
+      "salarioMax": 400,
+      "notaMinima": 70,
+      "nivel": 3
+    },
+    {
+      "id": "advogado",
+      "nome": "Advogado",
+      "emoji": "⚖️",
+      "salarioMin": 350,
+      "salarioMax": 550,
+      "notaMinima": 75,
+      "nivel": 3
+    },
+    {
+      "id": "programador",
+      "nome": "Programador",
+      "emoji": "💻",
+      "salarioMin": 600,
+      "salarioMax": 1000,
+      "notaMinima": 85,
+      "nivel": 4
+    },
+    {
+      "id": "medico",
+      "nome": "Médico",
+      "emoji": "🩺",
+      "salarioMin": 800,
+      "salarioMax": 1300,
+      "notaMinima": 90,
+      "nivel": 4
+    },
+    {
+      "id": "ceo",
+      "nome": "CEO",
+      "emoji": "👑",
+      "salarioMin": 1500,
+      "salarioMax": 2500,
+      "notaMinima": 100,
+      "nivel": 5
+    }
+  ],
+  "perguntas": {
+    "lixeiro": [
+      {
+        "p": "Qual é o dia da coleta de lixo comum?",
+        "r": [
+          "segunda",
+          "terça",
+          "quarta"
+        ]
+      },
+      {
+        "p": "O que significa a cor azul da lixeira?",
+        "r": [
+          "papel",
+          "plastico"
+        ]
+      }
+    ],
+    "entregador": [
+      {
+        "p": "Qual o prazo máximo de entrega para produtos perecíveis?",
+        "r": [
+          "24 horas",
+          "1 dia"
+        ]
+      },
+      {
+        "p": "O que fazer se o cliente não estiver em casa?",
+        "r": [
+          "retornar",
+          "ligar"
+        ]
+      }
+    ],
+    "programador": [
+      {
+        "p": "O que significa a sigla HTML?",
+        "r": [
+          "hypertext markup language"
+        ]
+      },
+      {
+        "p": "Qual linguagem é usada para estilizar páginas web?",
+        "r": [
+          "css"
+        ]
+      },
+      {
+        "p": "Qual o comando git para salvar as alterações no repositório local?",
+        "r": [
+          "git commit"
+        ]
+      }
+    ],
+    "vendedor": [
+      {
+        "p": "Qual a melhor forma de contornar a objeção de preço do cliente?",
+        "r": [
+          "mostrar valor",
+          "beneficios"
+        ]
+      },
+      {
+        "p": "O que é um lead qualificado?",
+        "r": [
+          "cliente com interesse",
+          "potencial comprador"
+        ]
+      }
+    ],
+    "medico": [
+      {
+        "p": "Qual é o osso mais longo do corpo humano?",
+        "r": [
+          "femur"
+        ]
+      },
+      {
+        "p": "Qual a dose inicial recomendada de adrenalina em parada cardíaca?",
+        "r": [
+          "1 mg",
+          "1mg"
+        ]
+      },
+      {
+        "p": "Qual o exame padrão ouro para diagnóstico de apendicite?",
+        "r": [
+          "tomografia",
+          "ultrassom"
+        ]
+      }
+    ],
+    "engenheiro": [
+      {
+        "p": "Qual a fórmula da Segunda Lei de Newton?",
+        "r": [
+          "f = m.a",
+          "f=ma",
+          "forca igual massa vezes aceleracao"
+        ]
+      },
+      {
+        "p": "Qual a resistência característica do concreto C25?",
+        "r": [
+          "25 mpa",
+          "25mpa"
+        ]
+      },
+      {
+        "p": "O que é o fator de segurança em projetos estruturais?",
+        "r": [
+          "margem de erro",
+          "seguranca"
+        ]
+      }
+    ],
+    "advogado": [
+      {
+        "p": "Qual o prazo para contestar uma ação judicial no processo civil?",
+        "r": [
+          "15 dias"
+        ]
+      },
+      {
+        "p": "O que significa o princípio da ampla defesa?",
+        "r": [
+          "direito de defesa"
+        ]
+      },
+      {
+        "p": "Qual é o tribunal máximo do poder judiciário brasileiro?",
+        "r": [
+          "stf"
+        ]
+      }
+    ],
+    "ceo": [
+      {
+        "p": "Qual é a principal função de um CEO em uma empresa de capital aberto?",
+        "r": [
+          "gerar valor",
+          "valor aos acionistas"
+        ]
+      },
+      {
+        "p": "O que é um EBITDA?",
+        "r": [
+          "lucro antes de juros",
+          "lajida"
+        ]
+      },
+      {
+        "p": "Qual a melhor estratégia para uma fusão e aquisição de sucesso?",
+        "r": [
+          "due diligence",
+          "analise de risco"
+        ]
+      }
+    ],
+    "juiz": [
+      {
+        "p": "Qual o princípio constitucional que garante a imparcialidade do juiz?",
+        "r": [
+          "imparcialidade"
+        ]
+      },
+      {
+        "p": "O que é a coisa julgada?",
+        "r": [
+          "decisão final",
+          "nao pode recorrer"
+        ]
+      }
+    ]
+  },
+  "salarioInicial": 20,
+  "energiaMaxima": 100,
+  "custoEnergiaTrabalho": 20,
+  "cooldownTrabalho": 600000,
+  "cooldownDormir": 28800000,
+  "tempoProva": 600000,
+  "perguntasPorProva": 7,
+  "acertosMinimos": 5,
+  "casas": [
+    {
+      "id": "barraco",
+      "nome": "Barraco",
+      "emoji": "🏚️",
+      "preco": 500,
+      "aluguel": 50,
+      "bonus": 5
+    },
+    {
+      "id": "simples",
+      "nome": "Casa Simples",
+      "emoji": "🏠",
+      "preco": 2000,
+      "aluguel": 200,
+      "bonus": 10
+    },
+    {
+      "id": "media",
+      "nome": "Casa Média",
+      "emoji": "🏡",
+      "preco": 5000,
+      "aluguel": 500,
+      "bonus": 15
+    },
+    {
+      "id": "mansao",
+      "nome": "Mansão",
+      "emoji": "🏘️",
+      "preco": 15000,
+      "aluguel": 1500,
+      "bonus": 25
+    },
+    {
+      "id": "palacio",
+      "nome": "Palácio",
+      "emoji": "🏰",
+      "preco": 50000,
+      "aluguel": 5000,
+      "bonus": 40
+    }
+  ],
+  "eventos": {
+    "intervaloMinutos": 30,
+    "custoBalada": 30
+  }
+}
