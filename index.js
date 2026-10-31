@@ -6335,13 +6335,6 @@ const emojiCmd = emojiDoComando(command);
               return { p: p.p || "Pergunta", r: (p && p.r) ? p.r : ["Resposta"], alternativas };
             });
 
-
-            const emprego = acharEmprego(args[0]);
-            if (!emprego) {
-              await sock.sendMessage(from, { text: "⚠️ Emprego inválido! Use *!empregos* pra ver a lista." }, { quoted: msg });
-              break;
-            }
-
             const prova = {
               empregoId: emprego.id,
               empregoNome: emprego.nome,
