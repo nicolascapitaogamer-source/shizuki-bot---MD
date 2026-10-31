@@ -1565,9 +1565,8 @@ async function tratarProvaTexto(sock, msg, from, sender, text) {
       acertou = p.r.some(r => normTxt(r) === tNorm);
     }
 
-    if (acertou) prova.acertos++;
+    if (acertou) { prova.acertos++; }
     prova.indice++;
-
     if (prova.indice >= prova.perguntas.length) {
       clearTimeout(prova.timer);
       provasAtivas.delete(sender);
@@ -6327,13 +6326,13 @@ const emojiCmd = emojiDoComando(command);
               todasPerguntas.push(pool[Math.floor(Math.random() * pool.length)]);
             }
             const perguntas = todasPerguntas.slice(0, 7).map(p => {
-              const respostaCerta = (p && p.r && Array.isArray(p.r) && p.r.length > 0) ? p.r[0] : "Resposta";
+              const certa = (p && p.r && p.r[0]) ? p.r[0] : "Resposta";
               const poolErradas = [
                 ...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])
-              ].map(x => (x && x.r) ? x.r[0] : "Errada").filter(x => x !== respostaCerta);
+              ].map(x => (x && x.r && x.r[0]) ? x.r[0] : "Errada").filter(x => x !== certa);
               const erradas = embaralhar(poolErradas).slice(0, 3);
-              const alternativas = embaralhar([respostaCerta, ...erradas]);
-              return { p: (p && p.p) ? p.p : "Pergunta Indisponível", r: (p && p.r) ? p.r : ["Resposta"], alternativas };
+              const alternativas = embaralhar([certa, ...erradas]);
+              return { p: (p && p.p) ? p.p : "Pergunta", r: [certa], alternativas };
             });
 
             const prova = {
