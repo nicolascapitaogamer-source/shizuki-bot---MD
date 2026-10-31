@@ -1343,8 +1343,10 @@ function salvarShizuki(jid, dados) {
 }
 
 function acharEmprego(id) {
-  if (!SHIZUKI_DATA) return null;
-  return SHIZUKI_DATA.empregos.find(e => e.id === id);
+  if (!SHIZUKI_DATA || !id) return null;
+  const limpar = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const idLimpo = limpar(id);
+  return SHIZUKI_DATA.empregos.find(e => limpar(e.id) === idLimpo || limpar(e.nome) === idLimpo);
 }
 
 // ─────────────── Salário ───────────────
@@ -1547,10 +1549,7 @@ async function tratarProvaTexto(sock, msg, from, sender, text) {
 
     const prova = provasAtivas.get(sender);
     if (!prova) return false;
-    if (!prova.stanzaAtual) return false;
 
-    const stanza = msg.message?.extendedTextMessage?.contextInfo?.stanzaId;
-    if (!stanza || stanza !== prova.stanzaAtual) return false;
 
     const p = prova.perguntas[prova.indice];
     const letras = ['A', 'B', 'C', 'D'];
@@ -6328,19 +6327,18 @@ const emojiCmd = emojiDoComando(command);
             }
             const perguntas = todasPerguntas.slice(0, 7).map(p => {
     // Se p.r não existir, a gente cria uma resposta padrão
-    const respostaCerta = p.r ? p.r[0] : (p.r ? p.r : 'Resposta');
-    const poolErradas = [
+const respostaCerta = (p && p.r && Array.isArray(p.r) && p.r.length > 0) ? p.r[0] : 'Resposta';
       ...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])
     ].map(x => x.r ? x.r[0] : 'Errada').filter(x => x !== respostaCerta);
     const erradas = embaralhar(poolErradas).slice(0, 3);
     const alternativas = embaralhar([respostaCerta, ...erradas]);
-    return { p: p.p, r: p.r || [respostaCerta], alternativas };
+return { p: p.p || 'Pergunta', r: (p && p.r) ? p.r : ['Resposta'], alternativas };
   });
 
             const prova = {
               empregoId: emprego.id,
               empregoNome: emprego.nome,
-              empregoEmoji: emprego.emoji,
+const limparTexto = (s) => s ? s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : ""; const empregosDisponiveis = Object.keys(shizuki_data.empregos || shizuki_data); const empregoEncontrado = empregosDisponiveis.find(e => limparTexto(e) === limparTexto(args[0])); if (!empregoEncontrado) {
               perguntas,
               indice: 0,
               acertos: 0,
