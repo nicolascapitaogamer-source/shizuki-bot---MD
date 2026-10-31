@@ -1521,8 +1521,8 @@ async function enviarPerguntaShizuki(sock, from, sender) {
   const prova = provasAtivas.get(sender);
   if (!prova) return;
   const num = prova.indice + 1;
-  const p = prova.perguntas[prova.indice];
-  const letras = ['A', 'B', 'C', 'D'];
+  const p = prova.perguntas[prova.indice] || { p: "Erro ao carregar pergunta", alternativas: ["A", "B"], r: ["A"] };
+  const letras = ["A", "B", "C", "D"];
   let alts = '';
   p.alternativas.forEach((alt, i) => {
     alts += `┃ *${letras[i]})* ${alt}\n`;
