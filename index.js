@@ -6323,16 +6323,17 @@ const emojiCmd = emojiDoComando(command);
             ];
             while (todasPerguntas.length < 7) {
               const pool = [...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])];
+              if (pool.length === 0) break;
               todasPerguntas.push(pool[Math.floor(Math.random() * pool.length)]);
             }
             const perguntas = todasPerguntas.slice(0, 7).map(p => {
               const respostaCerta = (p && p.r && Array.isArray(p.r) && p.r.length > 0) ? p.r[0] : "Resposta";
               const poolErradas = [
                 ...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])
-              ].map(x => x.r ? x.r[0] : "Errada").filter(x => x !== respostaCerta);
+              ].map(x => (x && x.r) ? x.r[0] : "Errada").filter(x => x !== respostaCerta);
               const erradas = embaralhar(poolErradas).slice(0, 3);
               const alternativas = embaralhar([respostaCerta, ...erradas]);
-              return { p: p.p || "Pergunta", r: (p && p.r) ? p.r : ["Resposta"], alternativas };
+              return { p: (p && p.p) ? p.p : "Pergunta Indisponível", r: (p && p.r) ? p.r : ["Resposta"], alternativas };
             });
 
             const prova = {
