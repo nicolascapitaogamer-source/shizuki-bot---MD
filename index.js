@@ -6322,23 +6322,29 @@ const emojiCmd = emojiDoComando(command);
               ...embaralhar(banco[emprego.id] || []).slice(0, 2)
             ];
             while (todasPerguntas.length < 7) {
-              const pool = [...(banco.faceis || []), ...(banco.medias || [])];
+              const pool = [...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])];
               todasPerguntas.push(pool[Math.floor(Math.random() * pool.length)]);
             }
             const perguntas = todasPerguntas.slice(0, 7).map(p => {
-    // Se p.r não existir, a gente cria uma resposta padrão
-const respostaCerta = (p && p.r && Array.isArray(p.r) && p.r.length > 0) ? p.r[0] : 'Resposta';
-      ...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])
-    ].map(x => x.r ? x.r[0] : 'Errada').filter(x => x !== respostaCerta);
-    const erradas = embaralhar(poolErradas).slice(0, 3);
-    const alternativas = embaralhar([respostaCerta, ...erradas]);
-return { p: p.p || 'Pergunta', r: (p && p.r) ? p.r : ['Resposta'], alternativas };
-  });
+              const respostaCerta = (p && p.r && Array.isArray(p.r) && p.r.length > 0) ? p.r[0] : "Resposta";
+              const poolErradas = [
+                ...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])
+              ].map(x => x.r ? x.r[0] : "Errada").filter(x => x !== respostaCerta);
+              const erradas = embaralhar(poolErradas).slice(0, 3);
+              const alternativas = embaralhar([respostaCerta, ...erradas]);
+              return { p: p.p || "Pergunta", r: (p && p.r) ? p.r : ["Resposta"], alternativas };
+            });
+
+
+            const emprego = acharEmprego(args[0]);
+            if (!emprego) {
+              await sock.sendMessage(from, { text: "⚠️ Emprego inválido! Use *!empregos* pra ver a lista." }, { quoted: msg });
+              break;
+            }
 
             const prova = {
               empregoId: emprego.id,
               empregoNome: emprego.nome,
-const limparTexto = (s) => s ? s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : ""; const empregosDisponiveis = Object.keys(shizuki_data.empregos || shizuki_data); const empregoEncontrado = empregosDisponiveis.find(e => limparTexto(e) === limparTexto(args[0])); if (!empregoEncontrado) {
               perguntas,
               indice: 0,
               acertos: 0,
