@@ -1,29 +1,10 @@
-# Dependências
-node_modules/
-
-# Sessão do WhatsApp
+key.txt
 auth_info/
-auth_info_baileys/
-
-# Dados dos usuários (NÃO subir)
-*.json
-!package.json
-!package-lock.json
-
-# Scripts de fix (temporários)
-*.cjs
-
-# Backups do index
-index.js.*
-index.js.antes*
-index.js.ANTES*
-index.js.save*
-*.bak
-*.save
-
-# Temporários
-tmp_*
-*.webp
-
-# Áudio (muito pesado)
-menu_audio.mp3
+auth_info.zip
+backup_json.zip
+backups_importantes.zip
+parte_*
+index_host*.js
+index_test.js
+teste.mp4
+*.zip

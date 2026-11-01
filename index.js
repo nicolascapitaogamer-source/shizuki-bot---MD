@@ -1,3 +1,4 @@
+const { abrirMenuPokemon, tratarMenuPokemon } = require("./sistemas/menu_pokemon");
 import { 
   makeWASocket, 
   useMultiFileAuthState, 
@@ -878,7 +879,7 @@ function textoMenuCassino(saldo, jid) {
          `┃ 💵 Apostas de ${CASSINO_MIN} a ${CASSINO_MAX} moedas\n` +
          `┃ 📈 A dificuldade sobe a cada jogo pago\n` +
          `┃ ⏳ Volta ao normal após 1h sem jogar\n` +
-         `┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`;
+         `┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`;
 }
 
 // ───────── JOGADAS E RESPOSTAS (mensagens sem prefixo) ─────────
@@ -4359,7 +4360,7 @@ async function connectToWhatsApp() {
                   `┃ 💜 Ainda bem que você voltou!\n┃ Estava com saudades...\n┃\n` +
                   `┃ ⏳ Você ficou *${tempoOff} segundo(s)* off!\n` +
                   `┃ 📝 Motivo: *${motivoSalvo}*\n┃\n` +
-                  `┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
+                  `┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
             mentions: [senderAFK]
           });
         }
@@ -4376,7 +4377,7 @@ async function connectToWhatsApp() {
                   `┃ 👤 @${sender.split('@')[0]} saiu de férias do zap!\n┃\n` +
                   `┃ 📝 Motivo: *${motivo}*\n` +
                   `┃ ⏳ Avisarei quando você voltar.\n┃\n` +
-                  `┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
+                  `┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
             mentions: [senderAFK]
           });
           continue; // Para de processar a mensagem atual
@@ -4390,7 +4391,7 @@ async function connectToWhatsApp() {
               text: `╭━━━〔 😴 𝐄𝐌 𝐅𝐄́𝐑𝐈𝐀𝐒 😴 〕━━━╮\n┃\n` +
                     `┃ 🌸 O @${m.split('@')[0]} tá de férias!\n┃\n` +
                     `┃ 📝 Motivo: *${afkDB[m].motivo}*\n┃\n` +
-                    `┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
+                    `┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
               mentions: [m]
             });
           }
@@ -4468,7 +4469,7 @@ async function connectToWhatsApp() {
             salvarShizuki(sender, u);
             
             await sock.sendMessage(from, { 
-              text: `╭━━━〔 🌅 𝐅𝐈𝐌 𝐃𝐀 𝐁𝐀𝐋𝐀𝐃𝐀 ${dadosBalada.vip ? '𝐕𝐈𝐏' : ''} 〕━━━╮\n┃\n┃ ${bebida}\n┃\n┃ ${textoInteracao}\n┃\n┃ ${resultadoFinal}\n┃\n┃ 💰 Saldo: R$ ${u.reais.toFixed(2)}\n┃ ⚡ Energia: ${u.energia}/100\n┃ 🎭 Felicidade: ${u.felicidade || 50}/100\n┃\n┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯` 
+              text: `╭━━━〔 🌅 𝐅𝐈𝐌 𝐃𝐀 𝐁𝐀𝐋𝐀𝐃𝐀 ${dadosBalada.vip ? '𝐕𝐈𝐏' : ''} 〕━━━╮\n┃\n┃ ${bebida}\n┃\n┃ ${textoInteracao}\n┃\n┃ ${resultadoFinal}\n┃\n┃ 💰 Saldo: R$ ${u.reais.toFixed(2)}\n┃ ⚡ Energia: ${u.energia}/100\n┃ 🎭 Felicidade: ${u.felicidade || 50}/100\n┃\n┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯` 
             }, { quoted: msg });
             continue;
           }
@@ -4662,6 +4663,8 @@ async function connectToWhatsApp() {
       }
 
       if (isGroup && await tratarProvaTexto(sock, msg, from, sender, text)) continue;
+      const stanzaId = msg.message?.extendedTextMessage?.contextInfo?.stanzaId;
+      if (isGroup && await tratarMenuPokemon(sock, msg, from, sender, text, stanzaId)) continue;
 
       if (isGroup && await tratarJogosTexto(sock, msg, from, sender, text)) continue;
 
@@ -4931,7 +4934,7 @@ const emojiCmd = emojiDoComando(command);
             const tipo = (args[0] || '').toLowerCase();
             
             if (tipo !== 'vip' && tipo !== 'normal') {
-              const msgMenu = `╭━━━〔 🎉 𝐁𝐀𝐋𝐀𝐃𝐀 🎉 〕━━━╮\n┃\n┃ 🚪 *Escolha seu acesso:*\n┃\n┃ 🎟️ *!balada normal*\n┃    ➜ Entrada Comum (R$ 20)\n┃\n┃ 👑 *!balada vip*\n┃    ➜ Entrada VIP (R$ 50)\n┃    ➜ Bebidas com 20% de desconto!\n┃    ➜ Bônus em tudo!\n┃\n┃ 💰 Seu saldo: R$ ${u.reais.toFixed(2)}\n┃\n┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`;
+              const msgMenu = `╭━━━〔 🎉 𝐁𝐀𝐋𝐀𝐃𝐀 🎉 〕━━━╮\n┃\n┃ 🚪 *Escolha seu acesso:*\n┃\n┃ 🎟️ *!balada normal*\n┃    ➜ Entrada Comum (R$ 20)\n┃\n┃ 👑 *!balada vip*\n┃    ➜ Entrada VIP (R$ 50)\n┃    ➜ Bebidas com 20% de desconto!\n┃    ➜ Bônus em tudo!\n┃\n┃ 💰 Seu saldo: R$ ${u.reais.toFixed(2)}\n┃\n┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`;
               await sock.sendMessage(from, { text: msgMenu }, { quoted: msg });
               break;
             }
@@ -5700,70 +5703,8 @@ const emojiCmd = emojiDoComando(command);
         // ═══════════════════════════════════════════════
 
         case 'menupokemon':
-          {
-            const texto =
-              `╭━━━━━━〔 🎮 𝐌𝐄𝐍𝐔 𝐏𝐎𝐊𝐄𝐌𝐎𝐍 🎮 〕━━━━━━╮\n` +
-              `┃\n` +
-              `┃ 💜 *Bem-vindo(a) ao mundo Pokémon!*\n` +
-              `┃ Captura, treina e batalha com seus\n` +
-              `┃ pokémons selvagens. 🐾\n` +
-              `┃\n` +
-              `╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n` +
-              `╭━━━〔 📖 𝐂𝐎𝐌𝐀𝐍𝐃𝐎𝐒 𝐁𝐀́𝐒𝐈𝐂𝐎𝐒 〕━━━╮\n` +
-              `┃\n` +
-              `┃ 🎒 !pokemon\n` +
-              `┃    ➜ Ver seu perfil\n` +
-              `┃\n` +
-              `┃ 🏪 !lojapokebola\n` +
-              `┃    ➜ Comprar pokébolas\n` +
-              `┃\n` +
-              `┃ 🛒 !lojapokemon\n` +
-              `┃    ➜ Comprar comidas\n` +
-              `┃\n` +
-              `┃ 🎯 !capturar <nome>\n` +
-              `┃    ➜ Capturar pokémon\n` +
-              `┃\n` +
-              `┃ 🍖 !alimentar <nome>\n` +
-              `┃    ➜ Alimentar pokémon\n` +
-              `┃\n` +
-              `┃ 🔄 !trocarpokebola <id>\n` +
-              `┃    ➜ Definir pokébola padrão\n` +
-              `┃\n` +
-              `┃ 📊 !porcentagem\n` +
-              `┃    ➜ Ver chance de aparição\n` +
-              `┃\n` +
-              `╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n` +
-              `╭━━━〔 ⚔️ 𝐁𝐀𝐓𝐀𝐋𝐇𝐀𝐒 〕━━━╮\n` +
-              `┃\n` +
-              `┃ ⚔️ !batalhapokemon @pessoa [pos]\n` +
-              `┃    ➜ Desafiar alguém\n` +
-              `┃\n` +
-              `┃ 🥊 !ataque1 / !ataque2 / !ataque3\n` +
-              `┃    ➜ Escolher ataque\n` +
-              `┃\n` +
-              `┃ 🏳️ !desistir\n` +
-              `┃    ➜ Fugir da batalha\n` +
-              `┃\n` +
-              `╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n` +
-              `╭━━━〔 👑 𝐀𝐃𝐌𝐈𝐍𝐒 〕━━━╮\n` +
-              `┃\n` +
-              `┃ ✅ !ativarspawn\n` +
-              `┃ ❌ !desativarspawn\n` +
-              `┃\n` +
-              `╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n` +
-              `━━━━━ 💜 ━━━ 💜 ━━━ 💜 ━━━━━\n` +
-              `   💜 𝐏𝐎𝐑𝐂𝐄𝐍𝐓𝐀𝐆𝐄𝐍𝐒 💜\n` +
-              `━━━━━ 💜 ━━━ 💜 ━━━ 💜 ━━━━━\n\n` +
-              `   ⚪ Comum     ➜ *${POKE_DATA.raridades.comum.chance}%*\n` +
-              `   🟢 Incomum   ➜ *${POKE_DATA.raridades.incomum.chance}%*\n` +
-              `   🔵 Raro      ➜ *${POKE_DATA.raridades.raro.chance}%*\n` +
-              `   🟣 Épico     ➜ *${POKE_DATA.raridades.epico.chance}%*\n` +
-              `   🟡 Lendário  ➜ *${POKE_DATA.raridades.lendario.chance}%*\n` +
-              `   🔴 Mítico    ➜ *${POKE_DATA.raridades.mitico.chance}%*\n\n` +
-              `💡 _Pokémons aparecem sozinhos!_`;
-            await sock.sendMessage(from, { text: texto, mentions: [sender] }, { quoted: msg });
-          }
-          break;
+    await abrirMenuPokemon(sock, from, msg, sender);
+    break;
 
         case 'pokemon':
           {
@@ -6105,7 +6046,7 @@ const emojiCmd = emojiDoComando(command);
                     `┃ 🎒 *@${sender.split('@')[0]}, escolha seu pokémon:*\n` +
                     `┃\n${lista1}┃\n` +
                     `┃ 💡 Use: *!escolher <nome>*\n` +
-                    `┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
+                    `┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
               mentions: [sender, alvo]
             }, { quoted: msg });
           }
@@ -6190,7 +6131,7 @@ const emojiCmd = emojiDoComando(command);
                       `┃ ⭐ Seu pokémon ganhou XP!\n┃\n` +
                       `┃ 💀 Perdedor: @${perdedor.split('@')[0]}\n` +
                       `┃ 📉 Perdeu um pouco de status\n` +
-                      `┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
+                      `┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
                 mentions: [vencedor, perdedor]
               }, { quoted: msg });
             } else {
@@ -6322,20 +6263,28 @@ const emojiCmd = emojiDoComando(command);
               ...embaralhar(banco.dificeis || []).slice(0, 1),
               ...embaralhar(banco[emprego.id] || []).slice(0, 2)
             ];
+            // Se não completou 7, puxa o resto das perguntas do próprio emprego
+            if (todasPerguntas.length < 7) {
+              const restantes = (banco[emprego.id] || []).filter(p => !todasPerguntas.includes(p));
+              todasPerguntas.push(...restantes.slice(0, 7 - todasPerguntas.length));
+            }
+            // Se ainda não completou, puxa de qualquer lugar
             while (todasPerguntas.length < 7) {
-              const pool = [...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])];
+              const pool = [...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || []), ...(banco[emprego.id] || [])];
               if (pool.length === 0) break;
               todasPerguntas.push(pool[Math.floor(Math.random() * pool.length)]);
             }
             const perguntas = todasPerguntas.slice(0, 7).map(p => {
-              const certa = (p && p.r && p.r[0]) ? p.r[0] : "Resposta";
-              const poolErradas = [
-                ...(banco.faceis || []), ...(banco.medias || []), ...(banco.dificeis || [])
-              ].map(x => (x && x.r && x.r[0]) ? x.r[0] : "Errada").filter(x => x !== certa);
-              const erradas = embaralhar(poolErradas).slice(0, 3);
-              const alternativas = embaralhar([certa, ...erradas]);
-              return { p: (p && p.p) ? p.p : "Pergunta", r: [certa], alternativas };
+              let certa = (p && p.r && p.r[0]) ? p.r[0] : "Resposta";
+              let alts = (p && p.alternativas && Array.isArray(p.alternativas)) ? p.alternativas : [];
+              // Se o JSON tiver menos de 4 alternativas, cria falsas para completar
+              if (alts.length < 4) {
+                alts = [certa, "Opcao A", "Opcao B", "Opcao C"];
+                alts = embaralhar(alts);
+              }
+              return { p: (p && p.p) ? p.p : "Pergunta", r: [certa], alternativas: alts };
             });
+            console.log("DEBUG PROVA: total perguntas =", perguntas.length);
 
             const prova = {
               empregoId: emprego.id,
@@ -14344,7 +14293,7 @@ const emojiCmd = emojiDoComando(command);
               `┃ ⏳ Vocês têm *3 minutos* pra capturar!\n` +
               `┃ ⚡ Use: *!capturar ${poke.nome}*\n┃\n` +
               `┃ 💎 Quem for mais rápido, leva!\n` +
-              `┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`;
+              `┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`;
 
             try {
               await sock.sendMessage(from, { image: { url }, caption: texto });
@@ -14384,7 +14333,7 @@ const emojiCmd = emojiDoComando(command);
                       `┃ 🎒 *@${bt.j2.split('@')[0]}, escolha seu pokémon:*\n` +
                       `┃\n${lista2}┃\n` +
                       `┃ 💡 Use: *!escolher <nome>*\n` +
-                      `┃\n┃ 💡 Use: *!participar*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
+                      `┃\n┃ 💡 Use: *!balada normal* ou *!balada vip*\n┃\n╰━━━━━━━━━━━━━━━━━━━━╯`,
                 mentions: [bt.j1, bt.j2]
               }, { quoted: msg });
             } else if (bt.fase === 'escolha2' && sender === bt.j2) {
