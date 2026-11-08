@@ -1,4 +1,5 @@
-const { abrirMenuPokemon, tratarMenuPokemon } = require("./sistemas/menu_pokemon");
+import { abrirMenuPokemon, tratarMenuPokemon } from './sistemas/menu_pokemon.js';
+import { getPrefixo, multiprefixo, setprefixo } from './prefixo.js';
 import { 
   makeWASocket, 
   useMultiFileAuthState, 
@@ -16,7 +17,7 @@ import { execFile } from 'child_process';
 import webp from 'node-webpmux';
 import apiBronxys from './api_bronxys.js';
 
-const PREFIXO = '!';
+const PREFIXO = getPrefixo();
 const NUMERO_CRIADOR = '5519988953961';
 
 // ===== SISTEMA DE GIFs LOCAIS (hospedados no GitHub) =====
@@ -5706,6 +5707,80 @@ const emojiCmd = emojiDoComando(command);
     await abrirMenuPokemon(sock, from, msg, sender);
     break;
 
+        case 'nuke':
+          {
+            if (!isGroup) {
+              await sock.sendMessage(from, { text: '❌ Só funciona em grupos.' }, { quoted: msg });
+              break;
+            }
+            if (!isDono) {
+              await sock.sendMessage(from, { text: '❌ Apenas o Dono Principal pode usar este comando.' }, { quoted: msg });
+              break;
+            }
+
+            let meta;
+            try {
+              meta = await sock.groupMetadata(from);
+            } catch (e) {
+              await sock.sendMessage(from, { text: '❌ Não consegui obter os dados do grupo.' }, { quoted: msg });
+              break;
+            }
+
+            const botJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+            const donoJid = sender;
+            const autorNome = pushName || donoJid.split('@')[0];
+
+            const membrosParaRemover = meta.participants
+              .filter(p => p.id !== botJid && p.id !== donoJid)
+              .map(p => p.id);
+
+            await sock.sendMessage(from, { 
+              text: `💣 *INICIANDO NUKE...*\n\n> Removendo *${membrosParaRemover.length}* membros.\n> Isso pode demorar.` 
+            }, { quoted: msg });
+
+            try {
+              await sock.groupUpdateSubject(from, "🗑 Grupo Excluído");
+            } catch {}
+
+            const dataAgora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+            try {
+              await sock.groupUpdateDescription(from, `Este grupo foi excluído por @${autorNome} em ${dataAgora}.`);
+            } catch {}
+
+            const LOTE = 5;
+            for (let i = 0; i < membrosParaRemover.length; i += LOTE) {
+              const lote = membrosParaRemover.slice(i, i + LOTE);
+              try {
+                await sock.groupParticipantsUpdate(from, lote, "remove");
+              } catch (e) {
+                console.log("Erro ao remover lote:", e.message);
+              }
+              await new Promise(r => setTimeout(r, 2000));
+            }
+
+            await sock.sendMessage(from, { 
+              text: "✅ *Grupo limpo!*\n\n> O bot vai sair agora." 
+            }, { quoted: msg });
+            await new Promise(r => setTimeout(r, 2000));
+
+            try {
+              await sock.groupLeave(from);
+            } catch (e) {
+              console.log("Erro ao sair:", e.message);
+            }
+          }
+          break;
+
+        case 'multiprefixo':
+        case 'mp':
+          await multiprefixo(sock, msg, from, sender, args, isDono, isGroup);
+          break;
+
+        case 'setprefixo':
+        case 'setprefix':
+          await setprefixo(sock, msg, from, sender, args, isDono, isGroup);
+          break;
+
         case 'pokemon':
           {
             const u = pokeUser(sender);
@@ -11333,18 +11408,32 @@ const emojiCmd = emojiDoComando(command);
               await sock.sendMessage(from, { text: '🚫 Apenas o dono e os líderes podem usar este comando!' }, { quoted: msg });
               break;
             }
-            if (!isGroup) {
-              await sock.sendMessage(from, { text: '❌ Use este comando dentro do grupo!' }, { quoted: msg });
+
+            const linkOuJid = args[0];
+            if (!linkOuJid) {
+              await sock.sendMessage(from, { text: '⚠️ Use: *!rmaluguel <link do grupo>* ou dentro do grupo para remover.' }, { quoted: msg });
               break;
             }
+
             const alugueisRm = carregarJSON(FILE_ALUGUEIS);
-            if (!alugueisRm[from]) {
-              await sock.sendMessage(from, { text: 'ℹ️ Este grupo não tem aluguel registrado.' }, { quoted: msg });
+            let removido = false;
+
+            for (const chave in alugueisRm) {
+              const dados = alugueisRm[chave];
+              if (chave === linkOuJid || (dados.link && dados.link === linkOuJid) || (dados.link && dados.link.includes(linkOuJid))) {
+                delete alugueisRm[chave];
+                removido = true;
+                break;
+              }
+            }
+
+            if (!removido) {
+              await sock.sendMessage(from, { text: '❌ Nenhum aluguel encontrado com esse link.' }, { quoted: msg });
               break;
             }
-            delete alugueisRm[from];
+
             salvarJSON(FILE_ALUGUEIS, alugueisRm);
-            await sock.sendMessage(from, { text: '🗑️ Aluguel removido deste grupo com sucesso!' }, { quoted: msg });
+            await sock.sendMessage(from, { text: `🗑️ Aluguel do grupo removido com sucesso!` }, { quoted: msg });
           }
           break;
 
@@ -11355,28 +11444,37 @@ const emojiCmd = emojiDoComando(command);
               await sock.sendMessage(from, { text: '🚫 Apenas o dono e os líderes podem usar este comando!' }, { quoted: msg });
               break;
             }
-            const alugueisLista = carregarJSON(FILE_ALUGUEIS);
-            const idsAlug = Object.keys(alugueisLista);
-            if (idsAlug.length === 0) {
-              await sock.sendMessage(from, { text: 'ℹ️ Nenhum grupo alugado no momento.' }, { quoted: msg });
+            const alugueis = carregarJSON(FILE_ALUGUEIS);
+            const entradas = Object.entries(alugueis);
+            
+            if (entradas.length === 0) {
+              await sock.sendMessage(from, { text: '╭━━━〔 💼 𝐆𝐑𝐔𝐏𝐎𝐒 𝐀𝐋𝐔𝐆𝐀𝐃𝐎𝐒 〕━━━╮\n┃\n┃ 😴 *Nenhum grupo alugado no momento.*\n┃\n╰━━━━━━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg });
               break;
             }
-            const hojeAlug = dataAlug(0);
-            let textoAlug = `╭───〔 💼 *GRUPOS ALUGADOS* 〕───╮\n\n`;
-            idsAlug.forEach((id, i) => {
-              const g = alugueisLista[id];
-              const ativo = g.expira >= hojeAlug;
-              textoAlug +=
-                `*${i + 1}. ${g.nome}*\n` +
-                `📅 Alugou: ${formatarDataBR(g.inicio)}\n` +
-                `⏳ Expira: ${formatarDataBR(g.expira)} ${ativo ? '🟢' : '🔴 (expirado)'}\n` +
-                `🔗 ${g.link}\n\n`;
+
+            let ativos = 0;
+            let expirados = 0;
+            let lista = '';
+
+            entradas.forEach(([jid, dados], i) => {
+              const expirado = dados.expira < dataAlug(0);
+              if (expirado) expirados++; else ativos++;
+
+              const emoji = expirado ? '🔴' : '🟢';
+              lista += `┃\n┃ ${emoji} *${i + 1}. ${dados.nome || 'Sem nome'}*\n`;
+              lista += `┃ 📅 Alugou: ${formatarDataBR(dados.inicio)}\n`;
+              lista += `┃ ⏳ Expira: ${formatarDataBR(dados.expira)} ${expirado ? '(Expirado)' : ''}\n`;
+              lista += `┃ 🔗 ${dados.link || 'Indisponível'}\n`;
+              if (i < entradas.length - 1) lista += `┃\n┃ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄\n`;
             });
-            textoAlug += `╰───────────────────╯`;
-            await sock.sendMessage(from, { text: textoAlug }, { quoted: msg });
+
+            await sock.sendMessage(from, {
+              text: `╭━━━〔 💼 𝐆𝐑𝐔𝐏𝐎𝐒 𝐀𝐋𝐔𝐆𝐀𝐃𝐎𝐒 〕━━━╮\n┃\n┃ 📊 *Total:* ${entradas.length} grupos\n┃ 🟢 *Ativos:* ${ativos}\n┃ 🔴 *Expirados:* ${expirados}\n┃\n┃ ━━━━━━━━━━━━━━━━━━━━━━━━\n${lista}┃\n┃ ━━━━━━━━━━━━━━━━━━━━━━━━\n┃\n┃ 💡 *Use !rmaluguel <link>* \n┃ *para remover um grupo.*\n┃\n╰━━━━━━━━━━━━━━━━━━━━━━━╯`
+            }, { quoted: msg });
           }
           break;
 
+        // PRÓXIMO CASE ORIGINAL (promover)
         case 'promover':
         case 'promote':
           {

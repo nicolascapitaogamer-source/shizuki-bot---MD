@@ -1,0 +1,13 @@
+{
+  "global": "!",
+  "grupos": {
+    "120363432256498354@g.us": {
+      "ativo": true,
+      "prefixo": "!"
+    },
+    "120363431332368686@g.us": {
+      "ativo": true,
+      "prefixo": "/"
+    }
+  }
+}
