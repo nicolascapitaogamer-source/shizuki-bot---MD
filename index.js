@@ -1,4 +1,7 @@
 import { abrirMenuPokemon, tratarMenuPokemon } from './sistemas/menu_pokemon.js';
+import { processarComandoEscola } from './escola_pokemon/escola_comandos.js';
+import { processarRespostaProva } from './escola_pokemon/escola_prova.js';
+import { enviarMenuPrincipal } from './menus/menu_principal.js';
 import { getPrefixo, multiprefixo, setprefixo } from './prefixo.js';
 import { 
   makeWASocket, 
@@ -210,7 +213,7 @@ async function montarMarca(sock, from, isGroup, pushName) {
   let grupo = 'Privado';
   if (isGroup) {
     try {
-      const gm = await sock.groupMetadata(from);
+      const gm = await globalThis.__getGroupMetadata(from);
       grupo = gm.subject;
     } catch (e) {
       grupo = 'Grupo';
@@ -1309,6 +1312,7 @@ try {
   console.error('❌ shizuki_data.json não encontrado!');
 }
 
+function __getNumLimpo(id) { return String(id || '').split('@')[0]; }
 const provasAtivas = new Map(); // sender -> { empregoId, perguntas, respostas, acertos, timer, from }
 
 // ─────────────── Persistência ───────────────
@@ -1467,24 +1471,27 @@ function textoShizukiCity(u, jid, pushName) {
     ? `${emprego.emoji} *${emprego.nome}*`
     : '😔 _Desempregado(a)_';
 
-  const namoro = u.namorando
-    ? `💜 @${u.namorando.split('@')[0]}`
-    : '❌ Solteiro(a)';
-
-  const familia = u.familia
-    ? `👨‍👩‍👧 Família *${u.familia.sobrenome}*`
-    : '❌ Sem família';
+  // --- CORREÇÃO: Usando 'casado' e 'filhos' em vez de 'namorando' e 'familia' ---
+  const statusAmor = u.casado
+    ? `💍 Casado(a)`
+    : (u.namorando ? `💜 Namorando` : "❌ Solteiro(a)");
+    
+  const statusFamilia = (u.filhos && u.filhos.length > 0)
+    ? `👨‍👩‍👧 ${u.filhos.length} Filho(s)`
+    : (u.familia ? `👨‍👩‍👧 Família *${u.familia.sobrenome}*` : '❌ Sem família');
 
   const ranking = pos ? `#${pos}` : 'Sem ranking';
 
+  const vipBadge = (typeof badgeVip === 'function' && badgeVip(jid)) ? ' 💎 VIP' : '';
+
   return `╭━━━〔 🏙️ 𝐒𝐇𝐈𝐙𝐔𝐊𝐈 𝐂𝐈𝐓𝐘 🏙️ 〕━━━╮\n┃\n` +
-         `┃ 👤 Cidadão: *${pushName}${(typeof badgeVip === 'function' && badgeVip(jid)) ? ' 💎 VIP' : ''}*\n` + // BADGE VIP
+         `┃ 👤 Cidadão: *${pushName}${vipBadge}*\n` +
          `┃ 💼 Emprego: ${nomeEmp}\n` +
          `┃ 💵 Saldo: *${formatarReais(u.reais)}*\n` +
          `┃ ⚡ Energia: *${u.energia}/100*\n` +
          `┃\n` +
-         `┃ ${namoro}\n` +
-         `┃ ${familia}\n` +
+         `┃ ${statusAmor}\n` +
+         `┃ ${statusFamilia}\n` +
          `┃ 🏆 Ranking: *${ranking}*\n` +
          `┃\n` +
          `╰━━━━━━━━━━━━━━━━━━━━━━━━╯`;
@@ -1506,13 +1513,13 @@ function textoListaEmpregos() {
 // ─────────────── Verificações ───────────────
 
 function podeFazerProva(sender) {
-  return !provasAtivas.has(sender);
+  return !provasAtivas.has(__getNumLimpo(sender));
 }
 
 function limparProva(sender) {
-  const p = provasAtivas.get(sender);
+  const p = provasAtivas.get(__getNumLimpo(sender));
   if (p && p.timer) clearTimeout(p.timer);
-  provasAtivas.delete(sender);
+  provasAtivas.delete(__getNumLimpo(sender));
 }
 
 
@@ -1520,7 +1527,7 @@ function limparProva(sender) {
 // ─────────── Helper: envia pergunta atual da prova ───────────
 
 async function enviarPerguntaShizuki(sock, from, sender) {
-  const prova = provasAtivas.get(sender);
+  const prova = provasAtivas.get(__getNumLimpo(sender));
   if (!prova) return;
   const num = prova.indice + 1;
   const p = prova.perguntas[prova.indice] || { p: "Erro ao carregar pergunta", alternativas: ["A", "B"], r: ["A"] };
@@ -1551,7 +1558,7 @@ async function tratarProvaTexto(sock, msg, from, sender, text) {
     const t = String(text || '').trim();
     if (!t || t.startsWith(PREFIXO)) return false;
 
-    const prova = provasAtivas.get(sender);
+    const prova = provasAtivas.get(__getNumLimpo(sender));
     if (!prova) return false;
 
 
@@ -1573,7 +1580,7 @@ async function tratarProvaTexto(sock, msg, from, sender, text) {
     prova.indice++;
     if (prova.indice >= prova.perguntas.length) {
       clearTimeout(prova.timer);
-      provasAtivas.delete(sender);
+      provasAtivas.delete(__getNumLimpo(sender));
       const passou = prova.acertos >= 5;
 
       if (passou) {
@@ -1733,7 +1740,9 @@ let isCasar = false;      if (pendentes && pendentes.has(stanza)) {
             const uA = shizukiUser(pedido.de);
             const uB = shizukiUser(pedido.para);
             uA.casado = pedido.para;
+            uA.dataCasamento = Date.now();
             uB.casado = pedido.de;
+            uB.dataCasamento = Date.now();
             salvarShizuki(pedido.de, uA);
             salvarShizuki(pedido.para, uB);
             await sock.sendMessage(from, {
@@ -1986,7 +1995,7 @@ function contemBotNoNome(nome) {
 
 async function ehAdmDoGrupo(sock, from, jid) {
   try {
-    const gm = await sock.groupMetadata(from);
+    const gm = await globalThis.__getGroupMetadata(from);
     return !!gm.participants.find(p => p.id === jid)?.admin;
   } catch (e) { return false; }
 }
@@ -2146,7 +2155,7 @@ if (!globalThis.__shizukiAniverTimer) {
         if (marca[hojeKey] && marca[hojeKey].includes(jid)) continue;
         for (const grupo of (u.aniversarioGrupos || [])) {
           try {
-            const gm = await sock.groupMetadata(grupo);
+            const gm = await globalThis.__getGroupMetadata(grupo);
             const ids = gm.participants.map(p => p.id);
             const textoAniv = `🎂 *FELIZ ANIVERSÁRIO!* 🎂\n\n💜 Hoje é o aniversário de\n   @${jid.split('@')[0]}!\n\n🎉 Vamos todos parabenizar!\n\n${ids.map(id => '@' + id.split('@')[0]).join(' ')}\n\n🥳 Parabéns, @${jid.split('@')[0]}! Que venham\n   muitos anos de vida! 🎁🎈`;
             await sock.sendMessage(grupo, { text: textoAniv, mentions: [...ids, jid] });
@@ -2301,7 +2310,7 @@ function proximoIdProposta(db) {
 
 async function ehAdmDoGrupoP(sock, groupId, jid) {
   try {
-    const gm = await sock.groupMetadata(groupId);
+    const gm = await globalThis.__getGroupMetadata(groupId);
     const jidLimpo = String(jid).split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
     const part = gm.participants.find(p => {
       const pidLimpo = String(p.id).split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
@@ -3863,6 +3872,32 @@ async function connectToWhatsApp() {
     auth: state,
     browser: ['Ubuntu', 'Chrome', '20.0.04']
   });
+  // === CACHE E ESCUDO ANTIBOT ===
+  // Cache pra não pedir groupMetadata toda hora
+  globalThis.__groupCache = new Map();
+  globalThis.__getGroupMetadata = async function(jid) {
+    if (!jid || !jid.endsWith('@g.us')) return { participants: [] };
+    const cached = globalThis.__groupCache.get(jid);
+    if (cached) return cached;
+    try {
+      const metadata = await globalThis.__getGroupMetadata(jid);
+      globalThis.__groupCache.set(jid, metadata);
+      setTimeout(() => globalThis.__groupCache.delete(jid), 5 * 60 * 1000); // 5 min
+      return metadata;
+    } catch (e) {
+      return { participants: [] };
+    }
+  };
+
+  // Escudo: impede que o bot feche por qualquer erro não tratado
+  process.on('uncaughtException', (err) => {
+    console.error('⚠️ Erro não tratado (ignorado):', err.message);
+  });
+  process.on('unhandledRejection', (err) => {
+    console.error('⚠️ Promise rejeitada (ignorada):', err?.message || err);
+  });
+  // === FIM ===
+
 
   const __enviarOriginal = sock.sendMessage.bind(sock);
   sock.sendMessage = (jid, content, options) => {
@@ -4014,6 +4049,45 @@ async function connectToWhatsApp() {
 
       console.log('❌ [CONEXÃO] Conexão fechada. Tentando reconectar...', shouldReconnect);
       if (shouldReconnect) {
+
+        // === LISTENER ANTIBOTS EXTRA ===
+        function iniciarListenerAntibots() {
+          try {
+            // Se o seu bot exporta o 'sock' globalmente, use ele.
+            // Se não, a gente vai tentar pegar do evento principal.
+            const globalSock = globalThis.__sockAtual;
+            if (!globalSock) return;
+            
+            globalSock.ev.on('messages.upsert', async ({ messages, type }) => {
+              if (type !== 'notify') return;
+              const msg = messages[0];
+              if (!msg.message) return;
+              const from = msg.key.remoteJid;
+              if (!from.endsWith('@g.us')) return;
+              const sender = msg.key.participant || msg.key.remoteJid;
+              const nossoNumero = (globalSock.user?.id || '').split('@')[0].split(':')[0];
+              const senderNumero = (sender || '').split('@')[0].split(':')[0];
+              
+              if (senderNumero === nossoNumero) return; // Não bane o próprio bot
+              
+              try {
+                const dbAntibots = carregarJSON('./antibots.json') || {};
+                if (dbAntibots[from] !== true) return;
+                const metadata = await globalThis.__getGroupMetadata(from);
+                const part = metadata.participants.find(p => p.id === sender || p.id.split('@')[0] === senderNumero);
+                if (part?.admin === 'admin' || part?.admin === 'superadmin') return;
+                
+                // BANE O BOT
+                try { await globalSock.sendMessage(from, { delete: msg.key }); } catch (e) {}
+                await globalSock.sendMessage(from, { text: '╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n🚨 *BOT DETECTADO E BANIDO!*\n\n👤 @' + senderNumero + ', aqui só tem espaço pra mim! 😎\n📉 Motivo: *Mensagem de outro bot*\n\n⚠️ _O grupo está protegido!_\n\n╰━━━━━━━━━━━━━━━━━━⬣', mentions: [sender] });
+                try { await globalSock.groupParticipantsUpdate(from, [sender], 'remove'); } catch (e) { console.log('Erro ao banir:', e.message); }
+              } catch (e) {}
+            });
+          } catch (e) { console.error('Erro listener antibots:', e.message); }
+        }
+        // === FIM LISTENER ANTIBOTS EXTRA ===
+        setTimeout(iniciarListenerAntibots, 5000);
+
         connectToWhatsApp();
       }
     } else if (connection === 'open') {
@@ -4105,7 +4179,7 @@ async function connectToWhatsApp() {
 
               // 2) Consulta no metadata do grupo (isso funciona com LID)
               try {
-                const gmAB = await sock.groupMetadata(id);
+                const gmAB = await globalThis.__getGroupMetadata(id);
                 const partAB = gmAB.participants.find(x =>
                   x.id === numAB || (x.lid && x.lid === numAB) || (x.id && x.id.includes(numAB.split('@')[0]))
                 );
@@ -4232,6 +4306,29 @@ async function connectToWhatsApp() {
 
     for (const msg of messages) {
       if (!msg.message || msg.key.fromMe) { console.log('[MSG] Ignorando (fromMe ou sem msg):', msg.key.fromMe); continue; }
+      // === ANTIBOTS NO HANDLER PRINCIPAL ===
+      if (msg.key.remoteJid && msg.key.remoteJid.endsWith('@g.us') && !msg.key.fromMe) {
+        const fromAntibot = msg.key.remoteJid;
+        const senderAntibot = msg.key.participant || msg.key.remoteJid;
+        const nossoNumero = (sock.user?.id || '').split('@')[0].split(':')[0];
+        const senderNumero = (senderAntibot || '').split('@')[0].split(':')[0];
+        if (senderNumero !== nossoNumero) {
+          try {
+            const dbAnt = carregarJSON('./antibots.json') || {};
+            if (dbAnt[fromAntibot] === true) {
+              const metadata = await globalThis.__getGroupMetadata(fromAntibot);
+              const part = metadata.participants.find(p => p.id === senderAntibot || p.id.split('@')[0] === senderNumero);
+              if (!(part?.admin === 'admin' || part?.admin === 'superadmin')) {
+                try { await sock.sendMessage(fromAntibot, { delete: msg.key }); } catch (e) {}
+                await sock.sendMessage(fromAntibot, { text: '╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n🚨 *BOT DETECTADO E BANIDO!*\n\n👤 @' + senderNumero + ', aqui só tem espaço pra mim! 😎\n📉 Motivo: *Mensagem de outro bot*\n\n⚠️ _O grupo está protegido!_\n\n╰━━━━━━━━━━━━━━━━━━⬣', mentions: [senderAntibot] });
+                try { await sock.groupParticipantsUpdate(fromAntibot, [senderAntibot], 'remove'); } catch (e) { console.log('Erro ao banir:', e.message); }
+                continue;
+              }
+            }
+          } catch (e) { console.error('Erro antibots:', e.message); }
+        }
+      }
+      // === FIM ANTIBOTS ===
       console.log('[MSG] Processando:', msg.key.remoteJid, '| de:', msg.key.participant || msg.key.remoteJid);
 
       // ESPIAO GLOBAL — SALVA
@@ -4276,7 +4373,19 @@ async function connectToWhatsApp() {
 
       const from = msg.key.remoteJid;
       const isGroup = from.endsWith('@g.us');
-      const sender = msg.key.participant || msg.key.remoteJid;
+      let sender = msg.key.participant || msg.key.remoteJid;
+      // --- RESOLVE LID -> JID REAL (fix admin em grupos LID) ---
+      if (isGroup && sender && sender.endsWith('@lid')) {
+        try {
+          const _metaLid = await sock.groupMetadata(from);
+          if (_metaLid?.participants) {
+            const _p = _metaLid.participants.find(p => p.id === sender || p.lid === sender || p.jid === sender);
+            if (_p?.jid) sender = _p.jid;
+            else if (_p?.id && !_p.id.endsWith('@lid')) sender = _p.id;
+          }
+        } catch (e) { console.error('Erro resolve LID:', e.message); }
+      }
+      // --- FIM RESOLVE LID ---
       const pushName = msg.pushName || 'Usuário';
 
       guardarNome(sender, pushName);
@@ -4542,7 +4651,7 @@ async function connectToWhatsApp() {
         if (dbParc[from] && dbParc[from].ativo) {
           let podeMandar = false;
           try {
-            const gmParc = await sock.groupMetadata(from);
+            const gmParc = await globalThis.__getGroupMetadata(from);
             if (gmParc.participants.find(p => p.id === sender)?.admin) podeMandar = true;
           } catch (e) {}
           const isLiderParc = (carregarConfig().lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
@@ -4590,7 +4699,7 @@ async function connectToWhatsApp() {
       if (isGroup && antiLinkAtivo(from) && contemLink(text)) {
         let ehAdmAl = false;
         try {
-          const gmAl = await sock.groupMetadata(from);
+          const gmAl = await globalThis.__getGroupMetadata(from);
           ehAdmAl = !!gmAl.participants.find(p => p.id === sender)?.admin;
         } catch (e) {}
         if (!ehAdmAl && !senderEhCriador(sender)) {
@@ -4624,7 +4733,7 @@ async function connectToWhatsApp() {
       if (isGroup && antiFloodAtivo(from)) {
         let ehAdmFl = false;
         try {
-          const gmFl = await sock.groupMetadata(from);
+          const gmFl = await globalThis.__getGroupMetadata(from);
           ehAdmFl = !!gmFl.participants.find(p => p.id === sender)?.admin;
         } catch (e) {}
         if (!ehAdmFl && !senderEhCriador(sender)) {
@@ -4664,13 +4773,15 @@ async function connectToWhatsApp() {
       }
 
       if (isGroup && await tratarProvaTexto(sock, msg, from, sender, text)) continue;
+      if (isGroup && await processarRespostaProva(sock, msg, from, sender, text)) continue;
       const stanzaId = msg.message?.extendedTextMessage?.contextInfo?.stanzaId;
       if (isGroup && await tratarMenuPokemon(sock, msg, from, sender, text, stanzaId)) continue;
 
       if (isGroup && await tratarJogosTexto(sock, msg, from, sender, text)) continue;
+      if (isGroup && await processarComandoEscola(sock, msg, from, sender, text.split(' ')[0].toLowerCase().replace(/^[!/.-]/, ''), text.split(' ').slice(1))) continue;
 
       if (text.trim().toLowerCase() === 'prefixo') {
-        await sock.sendMessage(from, { text: 'Oii, esse daqui é meu prefixo "' + PREFIXO + '"' }, { quoted: msg });
+        await sock.sendMessage(from, { text: '🌸 𝐏𝐫𝐞𝐟𝐢𝐱𝐨 🌸\n\nOii, eu sou a Shizuki!\nMeu prefixo atual é *\`' + PREFIXO + '\`*\n\n💡 _Use ele para chamar meus comandos._' }, { quoted: msg });
         continue;
       }
 
@@ -4780,7 +4891,7 @@ async function connectToWhatsApp() {
         if (estadoBot.soadm) {
           let senderEhAdm = false;
           try {
-            const gmSoAdm = await sock.groupMetadata(from);
+            const gmSoAdm = await globalThis.__getGroupMetadata(from);
             senderEhAdm = !!gmSoAdm.participants.find(p => p.id === sender)?.admin;
           } catch (e) {}
           if (!senderEhAdm) {
@@ -4791,14 +4902,13 @@ async function connectToWhatsApp() {
       }
 
 
-      const comandosValidos = [
-        'trocar_dono', 'menu', 'help', 'menugame', 'game', 'menuadm', 'adm', 
+      const comandosValidos = ['trocar_dono', 'menu', 'help', 'menugame', 'game', 'menuadm', 'adm', 
         'menuvip', 'vip', 'menudono', 'dono', 'nomebot', 'rmaudio', 'removeraudio', 
         'opengp', 'closegp', 'fotomenu', 'setmenu', 'fotobemvindo', 'setwelcome', 
         'fotoboasvindas', 'audiomenu', 'setaudiomenu', 'ping', 'criador', 'owner', 
         'ship', 'corno', 'gay', 'gostosa', 'gostoso', 'feio', 'bonito', 'bonita', 'rico', 'pobre', 'gado', 'safado', 'safada', 'chato', 'louco', 'louca', 'sortudo', 'sortuda', 'azarado', 'azarada', 'pau', 'bunda', 'chifre', 'inteligente', 'burro', 'burra', 'tiktok', 'ttk', 'beijo', 'beijar', 'abraço', 'abraco', 'abracar', 'abraçar', 'matar', 'kill', 
         'adivinhe', 'perfil', 'streak', 'sequencia', 'mute', 'mutar', 'unmute', 'desmutar', 'adv', 'advertir', 
-        'rmadv', 'unadv', 'remadv', 'ban', 'kick', 'boasvindas', 's', 'sticker', 'figurinha', 'brat', 'totag', 'hidetag', 'admins', 'adms', 'menubaixar', 'baixar', 'balada', 'casas', 'lojacasa', 'comprarcasa', 'alugarcasa', 'minhacasa', 'ativareventos', 'desativareventos', 'aniversario', 'meuaniversario', 'trocarpokebola', 'porcentagem', 'darvip', 'rmvip', 'listarvip', 'vipinfo', 'bauvip', 'baúvip', 'apelido', 'rmapelido', 'menuvip', 'vip', 'instagram', 'insta', 'playvideo', 'play_video', 'playmp4', 'intervalo', 'nuke', 'afk', 'figanime'];
+        'rmadv', 'unadv', 'remadv', 'ban', 'kick', 'boasvindas', 's', 'sticker', 'figurinha', 'brat', 'totag', 'hidetag', 'admins', 'adms', 'menubaixar', 'baixar', 'balada', 'casas', 'lojacasa', 'comprarcasa', 'alugarcasa', 'minhacasa', 'ativareventos', 'desativareventos', 'aniversario', 'meuaniversario', 'trocarpokebola', 'porcentagem', 'darvip', 'rmvip', 'listarvip', 'vipinfo', 'bauvip', 'baúvip', 'apelido', 'rmapelido', 'menuvip', 'vip', 'instagram', 'insta', 'playvideo', 'play_video', 'playmp4', 'intervalo', 'nuke', 'afk', 'figanime', 'minhadupla', 'dupla', 'limpar', 'clearchat','acenar', 'add', 'addlistanegra', 'addparceria', 'addpoke', 'addpokecoin', 'adotar', 'advertidos', 'alimentar', 'alugueis', 'aluguéis', 'antiemoji', 'antifake', 'antiflood', 'antiimagem', 'antilink', 'antipalavrao', 'antiporn', 'antipromocao', 'antistatus', 'antisticker', 'antivideo', 'apagar', 'api', 'apitoken', 'aposentadoria', 'aposentar', 'apresentar', 'aprovarlei', 'aprovarproposta', 'arena', 'arranhar_off', 'arrumar', 'assaltar', 'atacar', 'ataque1', 'ataque2', 'ataque3', 'atirar', 'ativarspawn', 'atualizar', 'autoresposta', 'avaliar', 'banco', 'batalhapokemon', 'bater', 'bico', 'bl', 'blacklist', 'blockcmd', 'blockcmdg', 'boss', 'botoff', 'boton', 'cafune', 'canal', 'cancelarduelo', 'cancelareleicao', 'cancelarforca', 'cancelarmemoria', 'candidatar', 'candidatos', 'cantada', 'cantar', 'capturar', 'casar', 'casino', 'cassino', 'channel', 'chutar', 'cla', 'colinho', 'comprararmadura', 'comprarcosmetico', 'comprarloja', 'comprarpokebola', 'congelar_off', 'conselho', 'consertar', 'corrida', 'criarfamilia', 'cuspir', 'dancar', 'darmandato', 'defender', 'demissao', 'demitir', 'demote', 'desativarspawn', 'descgp', 'desistir', 'divorciar', 'divorcio', 'doar', 'doardinheiro', 'dormir', 'duelo', 'editarmenu', 'eleicao', 'eletrocutar_off', 'empregos', 'empresa', 'emprestar', 'empurrar', 'encerrareleicao', 'entrada', 'envenenar', 'enviarproposta', 'escolher', 'esfaquear', 'esganar_off', 'espiao', 'estendermandato', 'estrangular', 'explodir', 'fakechat', 'fasedaeleicao', 'fazerprova', 'ferias', 'filhos', 'forca', 'frase', 'fundosaiu', 'férias', 'gp', 'gpinfo', 'hist', 'historico', 'ia', 'ilha', 'infogp', 'infogrupo', 'iniciareleicao', 'investir', 'jogodavelha', 'lamber', 'legendabv', 'legendasaiu', 'leispendentes', 'lideres', 'limparadv', 'linkgp', 'linkgrupo', 'listaadv', 'listadv', 'listanegra', 'listaradv', 'listarmembros', 'listarparcerias', 'logs', 'loja', 'lojaarena', 'lojapokebola', 'lojapokemon', 'loteria', 'lutar', 'líderes', 'magia', 'mapa', 'marcartodos', 'membrosinativos', 'memoria', 'menubrincadeiras', 'menupokemon', 'menushizuki', 'meupirata', 'meuscarros', 'meusfilhos', 'meusveiculos', 'meuvoto', 'minerar', 'minhasleis', 'minhaspropostas', 'modoaluguel', 'mododivertido', 'modohalloween', 'modonatal', 'modoparceria', 'modoshizuki', 'morder', 'mordida_off', 'mp', 'mudarnome', 'multiprefixo', 'navegar', 'nick', 'nomegp', 'novolink', 'parcerias', 'participar', 'pedirnamoro', 'pensao', 'pensão', 'pescar', 'pisar', 'piscar', 'pix', 'play', 'pokemon', 'porcento', 'presidente', 'presidentes', 'promocao', 'promote', 'promover', 'promoverall', 'promoção', 'proporlei', 'propostas', 'pularfase', 'queimar', 'quiz', 'rankazarado', 'rankbct', 'rankbebado', 'rankchato', 'rankchifrudo', 'rankcorno', 'rankengracado', 'rankfeio', 'rankfiel', 'rankgado', 'rankgay', 'rankgostosa', 'rankgostoso', 'rankingshizuki', 'rankinteligente', 'ranklinda', 'ranklindo', 'ranklouco', 'rankmaluco', 'rankotaku', 'rankpau', 'rankpobre', 'rankputa', 'rankrico', 'rankromantico', 'ranksafado', 'rankshizuki', 'ranksortudo', 'rebaixar', 'rebaixarall', 'regras', 'reiniciar', 'rejeitarlei', 'rejeitarproposta', 'removerpresidente', 'renunciar', 'resgatar', 'restart', 'resultado', 'revelar', 'revogarlink', 'rgaluguel', 'rgaviso', 'rmaluguel', 'rmaniversario', 'rmarena', 'rmcanal', 'rmchannel', 'rmconvite', 'rmopengp', 'rmparceria', 'roleta', 'roubar', 'segundotrabalho', 'sequestrar', 'servip', 'setbye', 'setlegendasaida', 'setprefix', 'setprefixo', 'shizuki', 'shizukicity', 'soadm', 'socar', 'sorte', 'sorteio', 'spawnlendario', 'take', 'terminar', 'tirardalista', 'toimage', 'toimg', 'topmembros', 'trabalhar', 'transferir', 'unblockcmd', 'unblockcmdg', 'updatestart', 'upgradestart', 'uptadestart', 'velha', 'vender', 'vendercarro', 'verlogs', 'verproposta', 'verregras', 'vipprotecao', 'votar','antibots', 'pinterest'];
 
             if (command === 'trocar_dono' && !isDonoReal) {
         await sock.sendMessage(from, { text: '🚫 Apenas o dono pode usar este comando!' }, { quoted: msg });
@@ -4868,7 +4978,162 @@ const emojiCmd = emojiDoComando(command);
         try { await sock.sendMessage(from, { react: { text: emojiCmd, key: msg.key } }); } catch (e) {}
       }
 
+      const dbMenusEdit = carregarJSON('./menus_design.json');
+
+      if (dbMenusEdit && dbMenusEdit[command]) {
+        // Se o menu tem design personalizado, usa ele
+        const p = getPrefixo(from);
+        const designPersonalizado = dbMenusEdit[command]
+          .replace(/\{p\}/g, p)
+          .replace(/\{user\}/g, '@' + sender.split('@')[0])
+          .replace(/\{pushName\}/g, pushName)
+          .replace(/\{nomeBot\}/g, config.nomeBot)
+          .replace(/\{numeroDono\}/g, config.numeroDono);
+        await sock.sendMessage(from, { text: designPersonalizado, mentions: [sender] }, { quoted: msg });
+        continue;
+      }
+
+
+      // === DETECCAO ANTIBOTS ===
+      if (isGroup) {
+        try {
+          const dbAntibots = carregarJSON('./antibots.json') || {};
+          if (dbAntibots[from] === true) {
+            const senderBot = (sender || '').split('@')[0];
+            const nossoBot = (sock.user?.id || '').split('@')[0];
+            const textoMsg = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
+            const isComando = /^[!\/.\-]/.test(textoMsg);
+            const naoEhDono = !isDono;
+            const naoEhNossoBot = senderBot !== nossoBot;
+            if (isComando && naoEhDono && naoEhNossoBot) {
+              const metadata = await globalThis.__getGroupMetadata(from);
+              const part = metadata.participants.find(p => p.id === sender || p.id.split('@')[0] === senderBot);
+              const isAdm = part?.admin === 'admin' || part?.admin === 'superadmin';
+              if (!isAdm) {
+                // Verifica se é um bot (nome contém bot, ou ID é de bot conhecido)
+                const push = (msg.pushName || '').toLowerCase();
+                const pareceBot = push.includes('bot') || push.includes('shizuki') || senderBot.length > 12;
+                if (pareceBot) {
+                  await sock.groupParticipantsUpdate(from, [sender], 'remove');
+                  await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n🚨 *BOT DETECTADO E BANIDO!*\n\n👤 Número: +' + senderBot + '\n📉 Motivo: *Fez um comando*\n🛡️ Proteção: *Ativada*\n\n⚠️ _O grupo está protegido!_\n\n╰━━━━━━━━━━━━━━━━━━⬣' });
+                  return;
+                }
+              }
+            }
+          }
+        } catch (e) { console.error('Erro antibots:', e.message); }
+      }
+      // === FIM DETECCAO ANTIBOTS ===
+
+
+      
+      
+      // === VERIFICACAO ANTIBOTS ===
+      if (isGroup && !isDono) {
+        try {
+          const dbAntibots = carregarJSON('./antibots.json') || {};
+          if (dbAntibots[from] === true) {
+            const nossoNumero = (sock.user?.id || '').split('@')[0].split(':')[0];
+            const senderNumero = (sender || '').split('@')[0].split(':')[0];
+      
+            // Se a mensagem NÃO for do seu bot, tenta banir
+            if (senderNumero !== nossoNumero) {
+              const metadata = await globalThis.__getGroupMetadata(from);
+              const part = metadata.participants.find(p => p.id === sender || p.id.split('@')[0] === senderNumero);
+              const isAdm = part?.admin === 'admin' || part?.admin === 'superadmin';
+        
+              // Se NÃO for admin do grupo, bane!
+              if (!isAdm) {
+                try { await sock.sendMessage(from, { delete: msg.key }); } catch (e) {}
+                await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n🚨 *BOT DETECTADO E BANIDO!*\n\n👤 @' + senderNumero + ', aqui só tem espaço pra mim! 😎\n📉 Motivo: *Mensagem de outro bot*\n\n⚠️ _O grupo está protegido!_\n\n╰━━━━━━━━━━━━━━━━━━⬣', mentions: [sender] }, { quoted: msg });
+                try { await sock.groupParticipantsUpdate(from, [sender], 'remove'); } catch (e) { console.log('Erro ao banir:', e.message); }
+                return;
+              }
+            }
+          }
+        } catch (e) { console.error('Erro antibots:', e.message); }
+      }
+      // === FIM VERIFICACAO ANTIBOTS ===
+
+
+
       switch (command) {
+        case 'limpar':
+        case 'clearchat':
+          {
+            if (!isGroup) {
+              await sock.sendMessage(from, { text: '❌ Este comando só funciona em grupos!' }, { quoted: msg });
+              break;
+            }
+            let isAdmGrupo = false;
+            try {
+              const metadata = await globalThis.__getGroupMetadata(from);
+              const part = metadata.participants.find(p => p.id === sender || p.id.split('@')[0] === sender.split('@')[0]);
+              isAdmGrupo = part?.admin === 'admin' || part?.admin === 'superadmin';
+            } catch (e) {}
+            
+            if (!isDono && !isAdmGrupo) {
+              await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🚫 𝐀𝐂𝐄𝐒𝐒𝐎 𝐍𝐄𝐆𝐀𝐃𝐎 🚫\n╰─────────────────────╯\n\n❌ Apenas administradores podem limpar o chat!\n💡 _Pede pra um adm usar o comando._\n\n╰━━━━━━━━━━━━━━━━━━⬣' }, { quoted: msg });
+              break;
+            }
+            
+            try { await sock.sendMessage(from, { delete: msg.key }); } catch (e) {}
+            
+            const quebras = '\n'.repeat(300);
+            await sock.sendMessage(from, { text: quebras });
+            
+            await sock.sendMessage(from, { text: '✨ 𝐂𝐡𝐚𝐭 𝐥𝐢𝐦𝐩𝐨! ✨\n✨ _Comando executado por: @' + sender.split('@')[0] + '_', mentions: [sender] });
+          }
+          break;
+        
+        
+        case 'pensao':
+        case 'pensão':
+          {
+            const u = shizukiUser(sender);
+
+            if (!u.casado) {
+              await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🤔 𝐎𝐏𝐒... 🤔\n╰─────────────────────╯\n\n🚫 Você precisa ser casado(a) para pagar pensão!\n\n💡 _Use !casar @pessoa primeiro._\n\n╰━━━━━━━━━━━━━━━━━━⬣' }, { quoted: msg });
+              break;
+            }
+
+            if (!u.filhos || u.filhos.length === 0) {
+              await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🤔 𝐎𝐏𝐒... 🤔\n╰─────────────────────╯\n\n🚫 Você não tem filhos para pagar pensão!\n\n💡 _Use !criarfamilia ou !adotar primeiro._\n\n╰━━━━━━━━━━━━━━━━━━⬣' }, { quoted: msg });
+              break;
+            }
+
+            const alvo = u.casado;
+            const uAlvo = shizukiUser(alvo);
+            const valorPensao = Math.floor(u.reais * 0.20);
+
+            if (valorPensao < 1) {
+              await sock.sendMessage(from, { text: '⚠️ Sua renda é tão baixa que a pensão deu R$ 0,00.\n💡 _Trabalhe mais antes de pagar._' }, { quoted: msg });
+              break;
+            }
+
+            if (u.reais >= valorPensao) {
+              u.reais -= valorPensao;
+              uAlvo.reais += valorPensao;
+              salvarShizuki(sender, u);
+              salvarShizuki(alvo, uAlvo);
+
+              await sock.sendMessage(from, {
+                text: '╭─────────────────────╮\n   ⚖️ 𝐓𝐑𝐈𝐁𝐔𝐍𝐀𝐋 𝐃𝐄 𝐅𝐀𝐌𝐈𝐋𝐈𝐀 ⚖️\n╰─────────────────────╯\n\n👨‍👩‍👦 *Audiência de Pensão Alimentícia*\n\n💜 *Pagador:* @' + sender.split('@')[0] + '\n💜 *Recebedor(a):* @' + alvo.split('@')[0] + '\n💰 *Valor:* R$ ' + valorPensao.toFixed(2).replace('.', ',') + ' (20%)\n\n✅ *Status:* Pagamento efetuado com sucesso!\n✨ _As crianças estão com o sustento garantido._\n\n╰━━━━━━━━━━━━━━━━━━⬣',
+                mentions: [sender, alvo]
+              }, { quoted: msg });
+
+            } else {
+              const saldoAntigo = u.reais;
+              u.reais = 0;
+              salvarShizuki(sender, u);
+
+              await sock.sendMessage(from, {
+                text: '╭─────────────────────╮\n   🚔 𝐏𝐑𝐈𝐒𝐀̃𝐎 𝐏𝐎𝐑 𝐏𝐄𝐍𝐒𝐀̃𝐎 🚔\n╰─────────────────────╯\n\n🚨 *Alerta Vermelho!*\n\nO cidadão @' + sender.split('@')[0] + ' foi detido pela Polícia de Shizuki City!\n\n💸 *Motivo:* Deve pensão alimentícia.\n📉 *Dívida:* R$ ' + valorPensao.toFixed(2).replace('.', ',') + '\n🏦 *Saldo apreendido:* R$ ' + saldoAntigo.toFixed(2).replace('.', ',') + '\n\n⛓️ *Pena:* Ficará preso até arrumar o dinheiro.\n\n💡 _Dica: Use !trabalhar para conseguir dinheiro e pagar a dívida._\n\n╰━━━━━━━━━━━━━━━━━━⬣',
+                mentions: [sender]
+              }, { quoted: msg });
+            }
+          }
+          break;
         case 'trocar_dono':
           {
             config.numeroDono = sender;
@@ -4882,28 +5147,6 @@ const emojiCmd = emojiDoComando(command);
           break;
 
         
-        case 'magia':
-          {
-            if (!isGroup) break;
-            const subMagia = (args[0] || '').toLowerCase();
-            const magia = MAGIAS_ARENA[subMagia];
-            if (!magia) {
-              let menu = '╭━━━〔 📖 𝐆𝐑𝐈𝐌𝐎́𝐑𝐈𝐎 〕━━━╮\n┃\n';
-              for (const [id, m] of Object.entries(MAGIAS_ARENA)) {
-                const ef = m.cura ? 'Cura ' + m.cura : 'Dano ' + m.dano;
-                menu += '┃ ' + m.emoji + ' *!magia ' + id + '* ➜ ' + m.nome + ' (' + ef + ' | ' + m.mana + ' Mana)\n';
-              }
-              menu += '┃\n╰━━━━━━━━━━━━━━━━━━━━━━━━╯';
-              await sock.sendMessage(from, { text: menu }, { quoted: msg });
-              break;
-            }
-            const uM = verificarMagiaArena(sender);
-            if (uM.mana < magia.mana) { await sock.sendMessage(from, { text: '💙 Mana insuficiente! (Precisa de ' + magia.mana + ')' }, { quoted: msg }); break; }
-            uM.mana -= magia.mana; salvarMagiaArena(sender, uM);
-            await sock.sendMessage(from, { text: '✨ *' + magia.emoji + ' ' + magia.nome.toUpperCase() + ' LANÇADA!* ✨\n\n💙 Mana: *' + uM.mana + '/' + uM.maxMana + '*' }, { quoted: msg });
-          }
-          break;
-
         case 'lojaarena':
           {
             let txt = '╭━━━〔 🛡️ 𝐋𝐎𝐉𝐀 𝐃𝐀 𝐀𝐑𝐄𝐍𝐀 〕━━━╮\n┃\n';
@@ -4915,7 +5158,7 @@ const emojiCmd = emojiDoComando(command);
 
         case 'comprararmadura':
           {
-            const id = (args[0] || '').toLowerCase();
+            const id = (args[0] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             const arm = ARMADURAS_ARENA[id];
             if (!arm) { await sock.sendMessage(from, { text: '⚠️ Armadura inválida! Use !lojaarena' }, { quoted: msg }); break; }
             const u = pokeUser(sender);
@@ -5133,48 +5376,47 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
-        case 'menu':
+case 'menu':
         case 'help':
           {
             const { saudacao, horaFormatada } = obterSaudacaoEHora();
             const isVipUser = (typeof eVIP === 'function' && eVIP(sender)) ? 'Sim 💎' : 'Não';
+            const prefixoAtual = config.prefixo || '!';
+            
             const menuPrincipal =
-              '｡･:*:･ﾟ★,｡･:*:･ﾟ☆ ｡･:*:･ﾟ★,｡･:*:･ﾟ☆\n' +
-              '    💜 𝐒𝐇𝐈𝐙𝐔𝐊𝐈 𝐁𝐎𝐓 - 𝐌𝐃 💜\n' +
-              '｡･:*:･ﾟ★,｡･:*:･ﾟ☆ ｡･:*:･ﾟ★,｡･:*:･ﾟ☆\n\n' +
-              '💜 Oii @' + sender.split('@')[0] + '! ' + saudacao + '~ (◕‿◕)\n\n' +
-              '╭─ ♡ ─ ♡ ─ ♡ ─╮\n' +
-              '   🌸 𝐒𝐄𝐔 𝐏𝐄𝐑𝐅𝐈𝐋 🌸\n' +
-              '╰─ ♡ ─ ♡ ─ ♡ ─╯\n' +
-              '   ♡ Número: ' + config.numeroDono + '\n' +
-              '   ♡ Bot: ' + config.nomeBot + '\n' +
-              '   ♡ Dono: nick dev\n' +
-              '   ♡ Usuário: ' + pushName + '\n' +
-              '   ♡ VIP: ' + isVipUser + '\n' +
-              '   ♡ Hora: ' + horaFormatada + '\n\n' +
-              '╭─ ♡ ─ ♡ ─ ♡ ─╮\n' +
-              '   💜 𝐌𝐄𝐍𝐔𝐒 💜\n' +
-              '╰─ ♡ ─ ♡ ─ ♡ ─╯\n' +
-              '   ♡ !menudono\n' +
-              '   ♡ !menuadm\n' +
-              '   ♡ !menushizuki\n' +
-              '   ♡ !menubrincadeiras\n' +
-              '   ♡ !menupokemon\n' +
-              '   ♡ !menuvip\n' +
-              '   ♡ !menubaixar\n\n' +
-              '╭─ ♡ ─ ♡ ─ ♡ ─╮\n' +
-              '   🌸 𝐄𝐗𝐓𝐑𝐀𝐒 🌸\n' +
-              '╰─ ♡ ─ ♡ ─ ♡ ─╯\n' +
-              '   ♡ !ping\n' +
-              '   ♡ !criador\n' +
-              '   ♡ prefixo\n' +
-              '   ♡ comprarbot\n' +
-              '   ♡ !afk\n' +
-              '   ♡ !nick\n' +
-              '   ♡ !ia\n' +
-              '💜 Feito com carinho por nick dev 💜';
-              '   ♡ !nick\n' +
-              '💜 Feito com carinho por nick dev 💜';
+              '╭─────────────────────╮\n\n' +
+              '🪷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
+              '✨ Como posso te ajudar hoje? (๑>ᴗ<๑)\n\n' +
+              '╭─〔 ⛩️ *MENU PRINCIPAL* 〕━━━━⬣\n' +
+              '┃\n' +
+              '┃ 🪷 *SEU PERFIL*\n' +
+              '┃ 🌸◗ Bot: ' + config.nomeBot + '\n' +
+              '┃ 🌸◗ Dono: nick dev\n' +
+              '┃ 🌸◗ Usuário: ' + pushName + '\n' +
+              '┃ 🌸◗ VIP: ' + isVipUser + '\n' +
+              '┃ 🌸◗ Hora: ' + horaFormatada + '\n' +
+              '┃\n' +
+              '┃ 🏮 *MENUS*\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'menudono\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'menuadm\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'menushizuki\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'menubrincadeiras\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'menupokemon\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'menuvip\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'menubaixar\n' +
+              '┃\n' +
+              '┃ 🎋 *EXTRAS*\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'ping\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'criador\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'prefixo\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'comprarbot\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'afk\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'nick\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'ia\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'multiprefixo\n' +
+              '┃\n' +
+              '╰━━━━━━━━━━━━━━━━━━⬣\n' +
+              '╰─────────────────────╯';
 
             if (fs.existsSync(MENU_AUDIO_PATH)) {
               try {
@@ -5202,286 +5444,364 @@ const emojiCmd = emojiDoComando(command);
             }
           }
           break;
-
-        // MENUGAME NOVO
-// MENUSHIZUKI FINAL
         case 'menushizuki':
-        case 'menugame':
-          case 'game':
           {
-            const menuGame =
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n` +
-              `   💜 𝐒𝐇𝐈𝐙𝐔𝐊𝐈 𝐂𝐈𝐓𝐘 💜\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n\n` +
-              `╭─ ⟨ 👤 ⟩ ─╮\n` +
-              `   💜 𝐂𝐈𝐃𝐀𝐃𝐀̃𝐎\n` +
-              `╰─ ⟨ 👤 ⟩ ─╯\n` +
-              `   ┃ 💜 !shizukicity\n` +
-              `   ┃ 💜 !rankingshizuki\n` +
-              `   ┃ 💜 !perfil\n\n` +
-              `╭─ ⟨ 💼 ⟩ ─╮\n` +
-              `   💜 𝐓𝐑𝐀𝐁𝐀𝐋𝐇𝐎\n` +
-              `╰─ ⟨ 💼 ⟩ ─╯\n` +
-              `   ┃ 💜 !empregos\n` +
-              `   ┃ 💜 !fazerprova\n` +
-              `   ┃ 💜 !trabalhar\n` +
-              `   ┃ 💜 !dormir\n` +
-              `   ┃ 💜 !promocao\n` +
-              `   ┃ 💜 !demitir\n` +
-              `   ┃ 💜 !ferias\n` +
-              `   ┃ 💜 !segundotrabalho\n` +
-              `   ┃ 💜 !investir <valor>\n` +
-              `   ┃ 💜 !resgatar\n` +
-              `   ┃ 💜 !empresa <nome>\n` +
-              `   ┃ 💜 !aposentar\n\n` +
-              `╭─ ⟨ 💍 ⟩ ─╮\n` +
-              `   💜 𝐑𝐄𝐋𝐀𝐂𝐈𝐎𝐍𝐀𝐌𝐄𝐍𝐓𝐎𝐒\n` +
-              `╰─ ⟨ 💍 ⟩ ─╯\n` +
-              `   ┃ 💜 !pedirnamoro @pessoa\n` +
-              `   ┃ 💜 !terminar\n` +
-              `   ┃ 💜 !casar @pessoa\n` +
-              `   ┃ 💜 !divorciar\n` +
-              `   ┃ 💜 !criarfamilia @pessoa [sobrenome]\n` +
-              `   ┃ 💜 !adotar @pessoa\n` +
-              `   ┃ 💜 !meusfilhos\n` +
-              `   ┃ 💜 !mudarnome <nome>\n\n` +
-              `╭─ ⟨ 🏠 ⟩ ─╮\n` +
-              `   💜 𝐌𝐎𝐑𝐀𝐃𝐈𝐀\n` +
-              `╰─ ⟨ 🏠 ⟩ ─╯\n` +
-              `   ┃ 💜 !casas\n` +
-              `   ┃ 💜 !comprarcasa <id>\n` +
-              `   ┃ 💜 !alugarcasa <id>\n` +
-              `   ┃ 💜 !minhacasa\n\n` +
-              `╭─ ⟨ 🎉 ⟩ ─╮\n` +
-              `   💜 𝐄𝐕𝐄𝐍𝐓𝐎𝐒\n` +
-              `╰─ ⟨ 🎉 ⟩ ─╯\n` +
-              `   ┃ 💜 !balada\n` +
-              `   ┃ 💜 !aniversario DD/MM\n` +
-              `   ┃ 💜 !ativareventos\n` +
-              `   ┃ 💜 !desativareventos\n\n` +
-              `╭─ ⟨ 🎣 ⟩ ─╮\n` +
-              `   💜 𝐏𝐄𝐒𝐂𝐀𝐑𝐈𝐀\n` +
-              `╰─ ⟨ 🎣 ⟩ ─╯\n` +
-              `   ┃ 💜 !pescar\n` +
-              `   ┃ 💜 !minerar\n` +
-              `   ┃ 💜 !corrida <1-5> <valor>\n\n` +
-              `╭─ ⟨ 🎮 ⟩ ─╮\n` +
-              `   💜 𝐃𝐈𝐕𝐄𝐑𝐒𝐀̃𝐎\n` +
-              `╰─ ⟨ 🎮 ⟩ ─╯\n` +
-              `   ┃ 💜 !loteria\n` +
-              `   ┃ 💜 !roubar @pessoa\n` +
-              `   ┃ 💜 !assaltar\n` +
-              `   ┃ 💜 !sequestrar @pessoa\n\n` +
-              `╭─ ⟨ 🏪 ⟩ ─╮\n` +
-              `   💜 𝐄𝐂𝐎𝐍𝐎𝐌𝐈𝐀\n` +
-              `╰─ ⟨ 🏪 ⟩ ─╯\n` +
-              `   ┃ 💜 !banco\n` +
-              `   ┃ 💜 !emprestar @pessoa <valor>\n` +
-              `   ┃ 💜 !doardinheiro @pessoa <valor>\n` +
-              `   ┃ 💜 !comprarloja\n` +
-              `   ┃ 💜 !meusveiculos\n` +
-              `   ┃ 💜 !arrumar <veiculo>\n` +
-              `   ┃ 💜 !vender <item>\n\n` +
-              `╭─ ⟨ 🏛️ ⟩ ─╮\n` +
-              `   💜 𝐏𝐑𝐄𝐒𝐈𝐃𝐄̂𝐍𝐂𝐈𝐀\n` +
-              `╰─ ⟨ 🏛️ ⟩ ─╯\n` +
-              `   ┃ 💜 !presidente\n` +
-              `   ┃ 💜 !eleicao\n` +
-              `   ┃ 💜 !resultado\n` +
-              `   ┃ 💜 !candidatos\n` +
-              `   ┃ 💜 !candidatar\n` +
-              `   ┃ 💜 !enviarproposta <texto>\n` +
-              `   ┃ 💜 !minhaspropostas\n` +
-              `   ┃ 💜 !votar <id>\n` +
-              `   ┃ 💜 !avaliar sim/nao\n` +
-              `   ┃ 💜 !meuvoto\n` +
-              `   ┃ 💜 !proporlei <texto>\n` +
-              `   ┃ 💜 !minhasleis\n` +
-              `   ┃ 💜 !renunciar\n` +
-              `\n╭─ ⟨ ❆ ⟩ ─╮\n` +
-              `   💜 𝐁𝐎𝐌 𝐉𝐎𝐆𝐎! 💜\n` +
-              `╰─ ⟨ ❆ ⟩ ─╯`;
+            const dbModo = carregarJSON('./modo_shizuki.json') || {};
+            let isAdmGrupo = false;
+            if (isGroup) {
+              try {
+                const metadata = await globalThis.__getGroupMetadata(from);
+                const part = metadata.participants.find(p => p.id === sender || p.id.split('@')[0] === sender.split('@')[0]);
+                isAdmGrupo = part?.admin === 'admin' || part?.admin === 'superadmin';
+              } catch (e) {}
+            }
+            
+            // O bloqueio agora checa o status daquele grupo específico (dbModo[from])
+            if (dbModo[from] === false && !isDono && !isAdmGrupo) {
+              await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🔒 𝐁𝐋𝐎𝐐𝐔𝐄𝐀𝐃𝐎 🔒\n╰─────────────────────╯\n\n⚠️ O Modo RPG está *DESATIVADO* neste grupo!\n💡 _Chame um administrador para ativar usando !modoshizuki._\n\n╰━━━━━━━━━━━━━━━━━━⬣' }, { quoted: msg });
+              break;
+            }
+
+            const prefixoAtual = config.prefixo || '!';
+            const menuShizuki =
+              '╭─────────────────────╮\n\n' +
+              '🌷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
+              '✨ Bem-vindo(a) ao mundo de *Shizuki City*! (๑>ᴗ<๑)\n\n' +
+              '╭─〔 🏯 *MENU SHIZUKI* 〕━━━━⬣\n' +
+              '┃\n' +
+              '┃ 👤 *CIDADÃO*\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'shizukicity\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'rankingshizuki\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'perfil\n' +
+              '┃\n' +
+              '┃ 💼 *TRABALHO*\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'empregos\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'fazerprova\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'trabalhar\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'dormir\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'promocao\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'demitir\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'ferias\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'segundotrabalho\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'investir <valor>\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'resgatar\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'empresa <nome>\n' +
+              '┃ 🌱◗ ' + prefixoAtual + 'aposentar\n' +
+              '┃\n' +
+              '┃ 💍 *RELACIONAMENTOS*\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'pedirnamoro @pessoa\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'terminar\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'casar @pessoa\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'divorciar\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'criarfamilia @pessoa [sobrenome]\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'adotar @pessoa\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'meusfilhos\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'mudarnome <nome>\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'pensao\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'minhadupla\n' +
+              '┃ 💞◗ ' + prefixoAtual + 'arvoregeneologica\n' +
+              '┃\n' +
+              '┃ 🏠 *MORADIA*\n' +
+              '┃ 🏡◗ ' + prefixoAtual + 'casas\n' +
+              '┃ 🏡◗ ' + prefixoAtual + 'comprarcasa <id>\n' +
+              '┃ 🏡◗ ' + prefixoAtual + 'alugarcasa <id>\n' +
+              '┃ 🏡◗ ' + prefixoAtual + 'minhacasa\n' +
+              '┃\n' +
+              '┃ 🎉 *EVENTOS*\n' +
+              '┃ 🎊◗ ' + prefixoAtual + 'balada\n' +
+              '┃ 🎊◗ ' + prefixoAtual + 'aniversario DD/MM\n' +
+              '┃ 🎊◗ ' + prefixoAtual + 'ativareventos\n' +
+              '┃ 🎊◗ ' + prefixoAtual + 'desativareventos\n' +
+              '┃\n' +
+              '┃ 🎣 *PESCARIA*\n' +
+              '┃ 🐟◗ ' + prefixoAtual + 'pescar\n' +
+              '┃ 🐟◗ ' + prefixoAtual + 'minerar\n' +
+              '┃ 🐟◗ ' + prefixoAtual + 'corrida <1-5> <valor>\n' +
+              '┃\n' +
+              '┃ 🎮 *DIVERSÃO*\n' +
+              '┃ 🎲◗ ' + prefixoAtual + 'loteria\n' +
+              '┃ 🎲◗ ' + prefixoAtual + 'roubar @pessoa\n' +
+              '┃ 🎲◗ ' + prefixoAtual + 'assaltar\n' +
+              '┃ 🎲◗ ' + prefixoAtual + 'sequestrar @pessoa\n' +
+              '┃\n' +
+              '┃ 🏪 *ECONOMIA*\n' +
+              '┃ 💰◗ ' + prefixoAtual + 'banco\n' +
+              '┃ 💰◗ ' + prefixoAtual + 'emprestar @pessoa <valor>\n' +
+              '┃ 💰◗ ' + prefixoAtual + 'transferir @pessoa <valor>\n' +
+              '┃ 💰◗ ' + prefixoAtual + 'comprarloja\n' +
+              '┃ 💰◗ ' + prefixoAtual + 'meusveiculos\n' +
+              '┃ 💰◗ ' + prefixoAtual + 'arrumar <veiculo>\n' +
+              '┃ 💰◗ ' + prefixoAtual + 'vender <item>\n' +
+              '┃\n' +
+              '┃ 🏛️ *PRESIDÊNCIA*\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'presidente\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'eleicao\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'resultado\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'candidatos\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'candidatar\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'enviarproposta <texto>\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'minhaspropostas\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'votar <id>\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'avaliar sim/nao\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'meuvoto\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'proporlei <texto>\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'minhasleis\n' +
+              '┃ 🗳️◗ ' + prefixoAtual + 'renunciar\n' +
+              '┃\n' +
+              '╰━━━━━━━━━━━━━━━━━━⬣\n' +
+              '╰─────────────────────╯';
+
             if (fs.existsSync(MENU_IMAGE_PATH)) {
               try {
-                await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuGame, mentions: [sender] }, { quoted: msg });
+                await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuShizuki, mentions: [sender] }, { quoted: msg });
               } catch (e) {
-                await sock.sendMessage(from, { text: menuGame, mentions: [sender] }, { quoted: msg });
+                await sock.sendMessage(from, { text: menuShizuki, mentions: [sender] }, { quoted: msg });
               }
             } else {
-              await sock.sendMessage(from, { text: menuGame, mentions: [sender] }, { quoted: msg });
-            } // FOTO NOS MENUS
+              await sock.sendMessage(from, { text: menuShizuki, mentions: [sender] }, { quoted: msg });
+            }
           }
           break;
 
         case 'menuadm':
-        case 'adm':
+          {
+            const prefixoAtual = config.prefixo || '!';
             const menuAdm =
-              `╭─ ⟨ 👑 ⟩ ─╮\n` +
-              `   💜 𝐌𝐄𝐍𝐔 𝐀𝐃𝐌\n` +
-              `╰─ ⟨ 👑 ⟩ ─╯\n\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n` +
-              `   💜 𝐌𝐎𝐃𝐄𝐑𝐀𝐂̧𝐀̃𝐎 💜\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n\n` +
-              `💜 !mute @pessoa\n` +
-              `💜 !unmute @pessoa\n` +
-              `💜 !adv @pessoa <motivo>\n` +
-              `💜 !rmadv @pessoa\n` +
-              `💜 !limparadv @pessoa\n` +
-              `💜 !listaadv\n` +
-              `💜 !intervalo <tempo>\n` +
-              `💜 !historico @pessoa\n` +
-              `💜 !ban @pessoa\n` +
-              `💜 !promover @pessoa\n` +
-              `💜 !rebaixar @pessoa\n` +
-              `💜 !promoverall\n` +
-              `💜 !rebaixarall\n` +
-              `💜 !apagar <qtd>\n` +
-              `💜 !blacklist @pessoa\n` +
-              `💜 !totag <texto>\n` +
-              `💜 !marcartodos <texto>\n` +
-              `💜 !revelar\n` +
-              `💜 !addlistanegra <numero>\n` +
-              `💜 !tirardalista <numero>\n` +
-              `💜 !listanegra\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n` +
-              `   💜 𝐂𝐎𝐍𝐅𝐈𝐆𝐔𝐑𝐀𝐑 💜\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n\n` +
-              `💜 !nomegp <nome>\n` +
-              `💜 !descgp <texto>\n` +
-              `💜 !gpinfo\n` +
-              `💜 !linkgp\n` +
-              `💜 !novolink\n` +
-              `💜 !revogarlink\n` +
-              `💜 !regras <texto>\n` +
-              `💜 !verregras\n` +
-              `💜 !boasvindas\n` +
-              `💜 !legendabv <texto>\n` +
-              `💜 !fundosaiu\n` +
-              `💜 !legendasaiu <texto>\n` +
-              `💜 !apresentar @pessoa\n` +
-              `💜 !add @pessoa\n` +
-              `💜 !soadm\n\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n` +
-              `   💜 𝐌𝐄𝐌𝐁𝐑𝐎𝐒 💜\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n\n` +
-              `💜 !topmembros\n` +
-              `💜 !membrosinativos\n` +
-              `💜 !listarmembros\n` +
-              `💜 !admins\n` +
-              `💜 !lideres\n` +
-              `💜 !sorteio <premio>\n` +
-              `💜 !fakechat\n` +
-              `💜 !frase <texto>\n\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n` +
-              `   💜 𝐀𝐓𝐈𝐕𝐀𝐂̧𝐎̃𝐄𝐒 💜\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n\n` +
-              `💜 !antilink [on/off]\n` +
-              `💜 !antiflood [on/off]\n` +
-              `💜 !antistatus [on/off]\n` +
-              `💜 !antipromocao [on/off]\n` +
-              `💜 !antifake [on/off]\n` +
-              `💜 !antiporn [on/off]\n` +
-              `💜 !antipalavrao [on/off]\n` +
-              `💜 !antivideo [on/off]\n` +
-              `💜 !antiimagem [on/off]\n` +
-              `💜 !antisticker [on/off]\n` +
-              `💜 !antiemoji [on/off]\n` +
-              `💜 !autosticker [on/off]\n` +
-              `💜 !autoresposta [on/off]\n` +
-              `💜 !mododivertido [on/off]\n` +
-              `💜 !modonatal [on/off]\n` +
-              `💜 !modohalloween [on/off]\n\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n` +
-              `   💜 𝐀𝐆𝐄𝐍𝐃𝐀𝐌𝐄𝐍𝐓𝐎𝐒 💜\n` +
-              `━━━━━ 💜 ─ 💜 ─ 💜 ━━━━━\n\n` +
-              `💜 !rgaviso [hh:mm] [texto]\n` +
-              `💜 !opengp [hh:mm]\n` +
-              `💜 !closegp [hh:mm]\n` +
-              `💜 !rmopengp\n` +
-              `💜 !gp a / !gp f\n` +
-              `💜 !modoparceria [on/off]\n` +
-              `💜 !addparceria @pessoa [qtd]\n` +
-              `💜 !rmparceria @pessoa\n` +
-              `💜 !listarparcerias\n\n` +
-              `╭─ ⟨ ❆ ⟩ ─╮\n` +
-              `   💜 𝐁𝐎𝐌 𝐓𝐑𝐀𝐁𝐀𝐋𝐇𝐎! 💜\n` +
-              `╰─ ⟨ ❆ ⟩ ─╯`;
-          if (fs.existsSync(MENU_IMAGE_PATH)) {
-            try {
-              await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuAdm }, { quoted: msg });
-            } catch (e) {
-              await sock.sendMessage(from, { text: menuAdm }, { quoted: msg });
+              '╭─────────────────────╮\n\n' +
+              '🪷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
+              '✨ Aqui está o *Menu ADM* pra você (๑>ᴗ<๑)\n\n' +
+              '╭─〔 ⛩️ *MENU DE COMANDOS* 〕━━━━⬣\n' +
+              '┃\n' +
+              '┃ ⚔️ *MODERAÇÃO*\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'mute @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'limpar\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'unmute @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'adv @pessoa <motivo>\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'rmadv @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'limparadv @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'listaadv\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'intervalo <tempo>\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'historico @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'ban @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'promover @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'rebaixar @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'promoverall\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'rebaixarall\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'apagar <qtd>\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'blacklist @pessoa\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'totag <texto>\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'marcartodos <texto>\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'revelar\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'addlistanegra <numero>\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'tirardalista <numero>\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'listanegra\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'multiprefixo <novo>\n' +
+              '┃\n' +
+              '┃ 🎴 *CONFIGURAR*\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'nomegp <nome>\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'descgp <texto>\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'gpinfo\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'linkgp\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'novolink\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'revogarlink\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'regras <texto>\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'verregras\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'boasvindas\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'legendabv <texto>\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'fundosaiu\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'legendasaiu <texto>\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'fotoboasvindas\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'apresentar @pessoa\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'add @pessoa\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'soadm\n' +
+              '┃\n' +
+              '┃ 👥 *MEMBROS*\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'topmembros\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'membrosinativos\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'listarmembros\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'admins\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'lideres\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'sorteio <premio>\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'fakechat\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'frase <texto>\n' +
+              '┃\n' +
+              '┃ 🔥 *ATIVAÇÕES*\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antibots [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antilink [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antiflood [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antistatus [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antipromocao [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antifake [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antiporn [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antipalavrao [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antivideo [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antiimagem [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antisticker [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antiemoji [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'autosticker [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'autoresposta [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'mododivertido [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'modonatal [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'modohalloween [on/off]\n' +
+              '┃\n' +
+              '┃ ⏰ *AGENDAMENTOS*\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'rgaviso [hh:mm] [texto]\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'opengp [hh:mm]\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'closegp [hh:mm]\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'rmopengp\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'gp a / ' + prefixoAtual + 'gp f\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'modoparceria [on/off]\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'addparceria @pessoa [qtd]\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'rmparceria @pessoa\n' +
+              '┃ 🕰️◗ ' + prefixoAtual + 'listarparcerias\n' +
+              '┃\n' +
+              '╰━━━━━━━━━━━━━━━━━━⬣\n' +
+              '╰─────────────────────╯';
+
+            if (fs.existsSync(MENU_IMAGE_PATH)) {
+              try {
+                await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuAdm, mentions: [sender] }, { quoted: msg });
+              } catch (e) {
+                await sock.sendMessage(from, { text: menuAdm, mentions: [sender] }, { quoted: msg });
+              }
+            } else {
+              await sock.sendMessage(from, { text: menuAdm, mentions: [sender] }, { quoted: msg });
             }
-          } else {
-            await sock.sendMessage(from, { text: menuAdm }, { quoted: msg });
           }
           break;
 
-        // REMOVIDO MENU VIP ANTIGO (linha 2280)
+
+
+        case 'antibots':
+          {
+            if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só funciona em grupos.' }, { quoted: msg }); break; }
+            let isAdmGrupo = false;
+            try {
+              const metadata = await globalThis.__getGroupMetadata(from);
+              const part = metadata.participants.find(p => p.id === sender || p.id.split('@')[0] === sender.split('@')[0]);
+              isAdmGrupo = part?.admin === 'admin' || part?.admin === 'superadmin';
+            } catch (e) {}
+            if (!isDono && !isAdmGrupo) { await sock.sendMessage(from, { text: '🚫 Apenas administradores.' }, { quoted: msg }); break; }
+
+            const op = (args[0] || '').trim().toLowerCase();
+            if (!['on', 'off'].includes(op)) { await sock.sendMessage(from, { text: '❌ Uso: *!antibots on* ou *!antibots off*' }, { quoted: msg }); break; }
+
+            const dbAntibots = carregarJSON('./antibots.json') || {};
+            dbAntibots[from] = op === 'on';
+            salvarJSON('./antibots.json', dbAntibots);
+
+            const texto = op === 'on'
+              ? '╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n💜 Oii @' + sender.split('@')[0] + ', proteção ativada!\n🛡️ Status: *LIGADO*\n\n⚠️ A partir de agora, qualquer outro bot\nque fizer comando será banido.\n\n╰━━━━━━━━━━━━━━━━━━⬣'
+              : '╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n💜 Oii @' + sender.split('@')[0] + ', proteção desativada!\n🛡️ Status: *DESLIGADO*\n\n✅ Outros bots podem fazer comandos\nno grupo em paz.\n\n╰━━━━━━━━━━━━━━━━━━⬣';
+
+            await sock.sendMessage(from, { text: texto, mentions: [sender] }, { quoted: msg });
+          }
+          break;
+
+
+        case 'pinterest':
+          {
+            const busca = args.join(' ').trim();
+            if (!busca) {
+              await sock.sendMessage(from, { text: '╭─────────────────────╮\n   📌 𝐏𝐈𝐍𝐓𝐄𝐑𝐄𝐒𝐓 📌\n╰─────────────────────╯\n\n⚠️ Oii @' + sender.split('@')[0] + ', digite o que quer buscar!\n💡 Exemplo: !pinterest naruto\n\n╰━━━━━━━━━━━━━━━━━━⬣', mentions: [sender] }, { quoted: msg });
+              break;
+            }
+            await sock.sendMessage(from, { text: '🔍 Buscando imagens de *' + busca + '*...' }, { quoted: msg });
+            try {
+              const res = await fetch('https://api.bronxyshost.com.br/api-bronxys/pinterest?nome=' + encodeURIComponent(busca) + '&apikey=' + (config.apiKey || 'SUA_KEY_AQUI'));
+              const data = await res.json();
+              if (!Array.isArray(data) || data.length === 0) throw new Error('Nenhuma imagem encontrada');
+              const img = data[Math.floor(Math.random() * data.length)];
+              const url = typeof img === 'string' ? img : (img.url || img.link);
+              if (!url) throw new Error('URL não encontrada');
+              const legenda = '╭─────────────────────╮\n   📌 𝐏𝐈𝐍𝐓𝐄𝐑𝐄𝐒𝐓 📌\n╰─────────────────────╯\n\n🔍 Busca: *' + busca + '*\n💜 _Aqui está sua inspiração!_\n\n╰━━━━━━━━━━━━━━━━━━⬣';
+              await sock.sendMessage(from, { image: { url }, caption: legenda, mentions: [sender] }, { quoted: msg });
+            } catch (e) {
+              console.error('Erro no pinterest:', e.message);
+              await sock.sendMessage(from, { text: '❌ Não achei nenhuma imagem de *' + busca + '*! Tente outra pesquisa.' }, { quoted: msg });
+            }
+          }
+          break;
 
         case 'menudono':
         case 'dono':
-          console.log('[DEBUG MENUDONO] sender:', sender, '| isDono:', isDono, '| isDonoReal:', isDonoReal, '| isLider:', isLider);
-          if (!isDono) {
-            await sock.sendMessage(from, { text: `🚫 Apenas o dono tem permissão para aceder a este menu!` }, { quoted: msg });
-            break;
-          }
-            const menuDono = `рџ’њ !nick [nome]\nрџ’њ !afk [motivo]\n` + 
-              `╭─〔 💜 _${config.nomeBot}_ 〕─╮\n\n` +
-              `╭─〔 ⚙️ _Menu Dono_ 〕─╮\n\n` +
-              `💜 !nomebot [nome]\n` +
-              `💜 !fotomenu\n` +
-              `💜 !audiomenu\n` +
-              `💜 !rmaudio\n` +
-              `💜 !blockcmdg [comando]\n` +
-              `💜 !unblockcmdg [comando]\n` +
-              `💜 !addpokecoin [qtd] @pessoa\n` +
-              `💜 !botoff\n` +
-              `💜 !boton\n` +
-              `💜 !reiniciar\n` +
-              `💜 !uptadestart\n` +
-              `💜 !channel [link]\n` +
-              `💜 !rmchannel\n` +
-              `💜 !modoaluguel\n` +
-              `💜 !rgaluguel [dias]\n` +
-              `💜 !rmaluguel\n` +
-              `💜 !alugueis\n` +
-              `💜 !api [chave]\n\n` + // API NO MENUDONO
-              `╭─〔 💎 _VIP_ 〕─╮\n\n` +
-              `💜 !darvip @pessoa [dias]\n` +
-              `💜 !servip\n` +
-              `💜 !rmvip @pessoa\n` +
-              `💜 !listarvip\n\n` +
-              `\n╭─〔 🏛️ _Presidência_ 〕─╮\n\n` +
-              `💜 !propostas\n` +
-              `💜 !aprovarproposta <id>\n` +
-              `💜 !rejeitarproposta <id>\n` +
-              `💜 !verproposta <id>\n\n` +
-              `💜 !iniciareleicao\n` +
-              `💜 !encerrareleicao\n` +
-              `💜 !cancelareleicao\n` +
-              `💜 !fasedaeleicao\n` +
-              `💜 !pularfase\n\n` +
-              `💜 !removerpresidente @pessoa\n` +
-              `💜 !darmandato @pessoa\n` +
-              `💜 !estendermandato <dias>\n` +
-              `💜 !presidentes\n\n` +
-              `💜 !leispendentes\n` +
-              `💜 !aprovarlei <id>\n` +
-              `💜 !rejeitarlei <id>\n` +
-              `╰────────────────────╯`; // DONO VIP FINAL
-          // FOTO NO MENUDONO
-          if (fs.existsSync(MENU_IMAGE_PATH)) {
-            try {
-              await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuDono, mentions: [sender] }, { quoted: msg });
-            } catch (e) {
+          {
+            if (!isDono) { await sock.sendMessage(from, { text: '🚫 Apenas o dono!' }, { quoted: msg }); break; }
+            const prefixoAtual = config.prefixo || '!';
+            const menuDono =
+              '╭─────────────────────╮\n\n' +
+              '👑 Oii @' + sender.split('@')[0] + '! Aqui é o *Menu Dono* 🌸\n' +
+              '✨ Escolha o que deseja gerenciar (๑>ᴗ<๑)\n\n' +
+              '╭─〔 👑 *MENU DONO* 〕━━━━⬣\n' +
+              '┃\n' +
+              '┃ 🪷 *CONFIGURAÇÕES DO BOT*\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'nomebot [nome]\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'fotomenu\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'audiomenu\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'rmaudio\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'blockcmdg [comando]\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'unblockcmdg [comando]\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'addpokecoin [qtd] @pessoa\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'channel [link]\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'rmchannel\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'api [chave]\n' +
+              '┃\n' +
+              '┃ 🎋 *CONTROLE DO BOT*\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'botoff\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'boton\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'reiniciar\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'uptadestart\n' +
+              '┃\n' +
+              '┃ 🎴 *ALUGUEL*\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'modoaluguel\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'rgaluguel [dias]\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'rmaluguel\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'alugueis\n' +
+              '┃\n' +
+              '┃ 💎 *VIP*\n' +
+              '┃ 🔮◗ ' + prefixoAtual + 'darvip @pessoa [dias]\n' +
+              '┃ 🔮◗ ' + prefixoAtual + 'servip\n' +
+              '┃ 🔮◗ ' + prefixoAtual + 'rmvip @pessoa\n' +
+              '┃ 🔮◗ ' + prefixoAtual + 'listarvip\n' +
+              '┃\n' +
+              '┃ 🏛️ *PRESIDÊNCIA*\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'propostas\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'aprovarproposta <id>\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'rejeitarproposta <id>\n' +
+              '┃ 🏮◗ ' + prefixoAtual + 'verproposta <id>\n' +
+              '┃\n' +
+              '┃ 🗳️ *ELEIÇÕES*\n' +
+              '┃ 🎐◗ ' + prefixoAtual + 'iniciareleicao\n' +
+              '┃ 🎐◗ ' + prefixoAtual + 'encerrareleicao\n' +
+              '┃ 🎐◗ ' + prefixoAtual + 'cancelareleicao\n' +
+              '┃ 🎐◗ ' + prefixoAtual + 'fasedaeleicao\n' +
+              '┃ 🎐◗ ' + prefixoAtual + 'pularfase\n' +
+              '┃\n' +
+              '┃ 🎎 *MANDATOS*\n' +
+              '┃ 🪷◗ ' + prefixoAtual + 'removerpresidente @pessoa\n' +
+              '┃ 🪷◗ ' + prefixoAtual + 'darmandato @pessoa\n' +
+              '┃ 🪷◗ ' + prefixoAtual + 'estendermandato <dias>\n' +
+              '┃ 🪷◗ ' + prefixoAtual + 'presidentes\n' +
+              '┃\n' +
+              '┃ 📜 *LEIS*\n' +
+              '┃ 📜◗ ' + prefixoAtual + 'leispendentes\n' +
+              '┃ 📜◗ ' + prefixoAtual + 'aprovarlei <id>\n' +
+              '┃ 📜◗ ' + prefixoAtual + 'rejeitarlei <id>\n' +
+              '┃\n' +
+              '╰━━━━━━━━━━━━━━━━━━⬣\n' +
+              '╰─────────────────────╯';
+
+            if (fs.existsSync(MENU_IMAGE_PATH)) {
+              try {
+                await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuDono, mentions: [sender] }, { quoted: msg });
+              } catch (e) {
+                await sock.sendMessage(from, { text: menuDono }, { quoted: msg });
+              }
+            } else {
               await sock.sendMessage(from, { text: menuDono }, { quoted: msg });
             }
-          } else {
-            await sock.sendMessage(from, { text: menuDono }, { quoted: msg });
           }
           break;
-
         case 'nomebot':
           if (!isDono) {
             await sock.sendMessage(from, { text: `🚫 Apenas o dono pode alterar o nome do bot!` }, { quoted: msg });
@@ -5521,7 +5841,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const groupMetadata = await sock.groupMetadata(from);
+            const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
             const senderAdmin = participants.find(p => p.id === sender)?.admin;
 
@@ -5561,7 +5881,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const groupMetadata = await sock.groupMetadata(from);
+            const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
             const senderAdmin = participants.find(p => p.id === sender)?.admin;
 
@@ -5703,6 +6023,79 @@ const emojiCmd = emojiDoComando(command);
         //              SISTEMA POKÉMON — COMANDOS
         // ═══════════════════════════════════════════════
 
+
+        case 'arvoregeneologica':
+        case 'arvore':
+        case 'familia':
+          {
+            const u = shizukiUser(sender);
+            const parceiro = u.casado || u.namorando;
+            const statusAmor = u.casado ? 'Casado(a)' : (u.namorando ? 'Namorando' : 'Solteiro(a)');
+            let paiTxt = 'Não registrado', avoTxt = 'Não registrado';
+            if (u.pai) { const uPai = shizukiUser(u.pai); paiTxt = '@' + u.pai.split('@')[0]; if (uPai && uPai.pai) avoTxt = '@' + uPai.pai.split('@')[0]; }
+            const conjugeTxt = parceiro ? ('@' + parceiro.split('@')[0]) : 'Ninguém';
+            let filhosTxt = 'Nenhum';
+            if (u.filhos && u.filhos.length > 0) { filhosTxt = u.filhos.length + '\n'; u.filhos.forEach(f => { filhosTxt += '│    └ @' + f.split('@')[0] + '\n'; }); filhosTxt = filhosTxt.trim(); }
+            await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🌳 ÁRVORE GENEALÓGICA 🌳\n╰─────────────────────╯\n\n👑 Cidadão: @' + sender.split('@')[0] + '\n📅 Status: ' + statusAmor + '\n\n╭───〔 🧬 ASCENDENTES 〕───╮\n│\n│ 👴 Avô: ' + avoTxt + '\n│ 👨 Pai: ' + paiTxt + '\n│\n╰───────────────────╯\n\n╭───〔 💍 CÔNJUGE 〕───╮\n│\n│ 💜 ' + conjugeTxt + '\n│\n╰───────────────────╯\n\n╭───〔 🌱 DESCENDENTES 〕───╮\n│\n│ 👦 Filhos: ' + filhosTxt + '\n│ 👶 Netos: Nenhum\n│\n╰───────────────────╯\n\n╭━━━━━━━━━━━━━━━━━━╮\n┃ 🌸 SHIZUKI BOT - MD 🌸 ┃\n╰━━━━━━━━━━━━━━━━━━╯', mentions: [sender, ...(parceiro ? [parceiro] : []), ...(u.pai ? [u.pai] : []), ...(u.filhos || [])] }, { quoted: msg });
+          }
+          break;
+
+        case 'comer':
+          {
+            const ctx = msg.message.extendedTextMessage?.contextInfo;
+            const quem = ctx?.mentionedJid?.[0] || ctx?.participant;
+            if (!quem) { await sock.sendMessage(from, { text: '⚠️ Marque alguém! Ex: !comer @pessoa' }, { quoted: msg }); break; }
+            if (sender === quem) { await sock.sendMessage(from, { text: '😳 Comer a si mesmo(a)?' }, { quoted: msg }); break; }
+            const texto = '╭─────────────────────╮\n   🍆 SENTA E GEME 🍑\n╰─────────────────────╯\n\n💜 @' + sender.split('@')[0] + '\n🔥 Comeu bem gostoso, mas usou proteção!\n🥵 @' + quem.split('@')[0] + ' ficou arrepiado(a) e pedindo mais~\n\n╰━━━━━━━━━━━━━━━━━━⬣';
+            try { const fs2 = await import('fs'); if (fs2.existsSync('./gifs/comer')) { const arqs = fs2.readdirSync('./gifs/comer'); if (arqs.length > 0) { const video = fs2.readFileSync('./gifs/comer/' + arqs[0]); await sock.sendMessage(from, { video, gifPlayback: true, caption: texto, mentions: [sender, quem] }, { quoted: msg }); break; } } } catch (e) {}
+            await sock.sendMessage(from, { text: texto, mentions: [sender, quem] }, { quoted: msg });
+          }
+          break;
+
+        case 'gozar':
+          {
+            const ctx = msg.message.extendedTextMessage?.contextInfo;
+            const quem = ctx?.mentionedJid?.[0] || ctx?.participant;
+            if (!quem) { await sock.sendMessage(from, { text: '⚠️ Marque alguém! Ex: !gozar @pessoa' }, { quoted: msg }); break; }
+            if (sender === quem) { await sock.sendMessage(from, { text: '😳 Impossível!' }, { quoted: msg }); break; }
+            const texto = '╭─────────────────────╮\n   💦 JATO PRESSIONADO 💦\n╰─────────────────────╯\n\n💜 @' + sender.split('@')[0] + '\n🥵 Melou tudo!\n🚿 Vai lavar essa cara, @' + quem.split('@')[0] + '!\n\n╰━━━━━━━━━━━━━━━━━━⬣';
+            try { const fs2 = await import('fs'); if (fs2.existsSync('./gifs/gozar')) { const arqs = fs2.readdirSync('./gifs/gozar'); if (arqs.length > 0) { const video = fs2.readFileSync('./gifs/gozar/' + arqs[0]); await sock.sendMessage(from, { video, gifPlayback: true, caption: texto, mentions: [sender, quem] }, { quoted: msg }); break; } } } catch (e) {}
+            await sock.sendMessage(from, { text: texto, mentions: [sender, quem] }, { quoted: msg });
+          }
+          break;
+
+
+        case 'minhadupla':
+        case 'dupla':
+          {
+            const u = shizukiUser(sender);
+            if (!u.casado && !u.namorando) { await sock.sendMessage(from, { text: '╭─────────────────────╮\n   💍 MINHA DUPLA 💍\n╰─────────────────────╯\n\n❌ Oii @' + sender.split('@')[0] + ', você ainda não tem uma dupla!\n💡 _Use !casar @pessoa para encontrar seu par._\n\n╰━━━━━━━━━━━━━━━━━━⬣', mentions: [sender] }, { quoted: msg }); break; }
+            const parceiro = u.casado || u.namorando;
+            const tipo = u.casado ? 'Casado(a)' : 'Namorando';
+            const inicio = u.dataCasamento || Date.now();
+            let diferenca = Date.now() - inicio;
+            const msAno = 31536000000, msMes = 2592000000, msDia = 86400000, msHora = 3600000, msMin = 60000;
+            const anos = Math.floor(diferenca / msAno); diferenca %= msAno;
+            const meses = Math.floor(diferenca / msMes); diferenca %= msMes;
+            const dias = Math.floor(diferenca / msDia); diferenca %= msDia;
+            const horas = Math.floor(diferenca / msHora); diferenca %= msHora;
+            const minutos = Math.floor(diferenca / msMin);
+            const segundos = Math.floor((diferenca % msMin) / 1000);
+            let partes = [];
+            if (anos > 0) partes.push(anos + (anos === 1 ? ' ano' : ' anos'));
+            if (meses > 0) partes.push(meses + (meses === 1 ? ' mês' : ' meses'));
+            if (dias > 0) partes.push(dias + 'd');
+            if (horas > 0) partes.push(horas + 'h');
+            if (minutos > 0) partes.push(minutos + 'min');
+            if (segundos > 0 || partes.length === 0) partes.push(segundos + 's');
+            const tempoJuntos = partes.join(' ');
+            const uParceiro = shizukiUser(parceiro);
+            const reaisParceiro = Number(uParceiro.reais || 0).toFixed(2);
+            const qtdFilhos = Array.isArray(u.filhos) ? u.filhos.length : 0;
+            await sock.sendMessage(from, { text: '╭─────────────────────╮\n   💞 MINHA DUPLA 💞\n╰─────────────────────╯\n\n👤 Você: *@' + sender.split('@')[0] + '*\n💑 Dupla: *@' + parceiro.split('@')[0] + '*\n💰 Reais da dupla: *R$ ' + reaisParceiro + '*\n⏳ Juntos há: *' + tempoJuntos + '*\n👨‍👩‍👧 Filhos: *' + qtdFilhos + '*\n\n💡 _Que a união de vocês dure para sempre!_\n\n╰━━━━━━━━━━━━━━━━━━⬣', mentions: [sender, parceiro] }, { quoted: msg });
+          }
+          break;
+
         case 'menupokemon':
     await abrirMenuPokemon(sock, from, msg, sender);
     break;
@@ -5720,7 +6113,7 @@ const emojiCmd = emojiDoComando(command);
 
             let meta;
             try {
-              meta = await sock.groupMetadata(from);
+              meta = await globalThis.__getGroupMetadata(from);
             } catch (e) {
               await sock.sendMessage(from, { text: '❌ Não consegui obter os dados do grupo.' }, { quoted: msg });
               break;
@@ -5781,6 +6174,81 @@ const emojiCmd = emojiDoComando(command);
           await setprefixo(sock, msg, from, sender, args, isDono, isGroup);
           break;
 
+case 'editarmenu':
+  {
+    if (!isDono) {
+      await sock.sendMessage(from, { text: '🚫 Apenas o Dono pode editar menus!' }, { quoted: msg });
+      break;
+    }
+
+    const menuAlvo = (args[0] || '').toLowerCase().trim();
+    const dbMenus = carregarJSON('./menus_design.json');
+
+    if (!menuAlvo) {
+      await sock.sendMessage(from, {
+        text: `╭━━━〔 ✏️ 𝐄𝐃𝐈𝐓𝐀𝐑 𝐌𝐄𝐍𝐔 〕━━━╮\n┃\n┃ 🛠️ *Como usar:*\n┃ ➜ {p}editarmenu <nome_do_menu>\n┃\n┃ 📋 *Menus disponíveis:*\n┃ ➜ menu\n┃ ➜ menuadm\n┃ ➜ menudono\n┃ ➜ menushizuki\n┃ ➜ menupokemon\n┃\n┃ 💡 *Exemplo:*\n┃ ➜ {p}editarmenu menuadm\n┃ _E depois MARQUE a mensagem com o novo texto._\n┃\n╰━━━━━━━━━━━━━━━━━━━━━━╯`
+      }, { quoted: msg });
+      break;
+    }
+
+    const ctxInfo = msg.message?.extendedTextMessage?.contextInfo
+                 || msg.message?.imageMessage?.contextInfo
+                 || msg.message?.videoMessage?.contextInfo
+                 || msg.message?.documentMessage?.contextInfo
+                 || msg.message?.audioMessage?.contextInfo
+                 || null;
+
+    const quotedMsg = ctxInfo?.quotedMessage || null;
+
+    let novoDesign = '';
+
+    if (quotedMsg) {
+      novoDesign =
+        quotedMsg.conversation ||
+        quotedMsg.extendedTextMessage?.text ||
+        quotedMsg.imageMessage?.caption ||
+        quotedMsg.videoMessage?.caption ||
+        quotedMsg.documentMessage?.caption ||
+        quotedMsg.audioMessage?.caption ||
+        '';
+    }
+
+    novoDesign = (novoDesign || '')
+      .replace(/^\uFEFF/, '')
+      .replace(/\r\n/g, '\n')
+      .replace(/[\u200B-\u200D\u2060]/g, '')
+      .trim();
+
+    if (!quotedMsg) {
+      await sock.sendMessage(from, {
+        text: `╭━━━〔 ✏️ 𝐄𝐃𝐈𝐓𝐀𝐑 𝐌𝐄𝐍𝐔 〕━━━╮\n┃\n┃ 📝 *Menu selecionado:* ${menuAlvo}\n┃\n┃ ━━━━━━━━━━━━━━━━━━━━━━━━\n┃\n┃ ⚠️ *Você não marcou nenhuma mensagem!*\n┃\n┃ 💬 *Como fazer:*\n┃ 1️⃣ Escreva o novo design\n┃ 2️⃣ Envie no grupo\n┃ 3️⃣ MARQUE ele e rode:\n┃    {p}editarmenu ${menuAlvo}\n┃\n┃ 💡 _Use {p} para o prefixo._\n┃\n╰━━━━━━━━━━━━━━━━━━━━━━╯`
+      }, { quoted: msg });
+      break;
+    }
+
+    if (!novoDesign) {
+      await sock.sendMessage(from, {
+        text: `╭━━━〔 ✏️ 𝐄𝐃𝐈𝐓𝐀𝐑 𝐌𝐄𝐍𝐔 〕━━━╮\n┃\n┃ 📝 *Menu selecionado:* ${menuAlvo}\n┃\n┃ ━━━━━━━━━━━━━━━━━━━━━━━━\n┃\n┃ ❌ *A mensagem marcada não tem texto!*\n┃\n┃ 💬 _Marque uma mensagem de TEXTO_\n┃ _com o novo design._\n┃\n╰━━━━━━━━━━━━━━━━━━━━━━╯`
+      }, { quoted: msg });
+      break;
+    }
+
+    try {
+      dbMenus[menuAlvo] = novoDesign;
+      salvarJSON('./menus_design.json', dbMenus);
+
+      const preview = novoDesign.split('\n').slice(0, 3).join('\n');
+      const totalLinhas = novoDesign.split('\n').length;
+
+      await sock.sendMessage(from, {
+        text: `╭━━━〔 ✅ 𝐌𝐄𝐍𝐔 𝐀𝐓𝐔𝐀𝐋𝐈𝐙𝐀𝐃𝐎 〕━━━╮\n┃\n┃ 📝 *Menu:* ${menuAlvo}\n┃ 📊 *Linhas:* ${totalLinhas}\n┃ 🔄 *Status:* Salvo com sucesso!\n┃\n┃ ━━━━━━━━━━━━━━━━━━━━━━━━\n┃\n┃ 👁️ *Preview:*\n┃ ${preview.split('\n').join('\n┃ ')}\n┃\n┃ ━━━━━━━━━━━━━━━━━━━━━━━━\n┃\n┃ 💡 _Teste com ${menuAlvo === 'menu' ? '{p}menu' : '{p}' + menuAlvo}_\n┃\n╰━━━━━━━━━━━━━━━━━━━━━━╯`
+      }, { quoted: msg });
+    } catch (err) {
+      console.error('Erro ao editar menu:', err);
+      await sock.sendMessage(from, { text: '❌ Erro ao salvar o design.' }, { quoted: msg });
+    }
+  }
+  break;
         case 'pokemon':
           {
             const u = pokeUser(sender);
@@ -5882,7 +6350,7 @@ const emojiCmd = emojiDoComando(command);
         case 'comprarpokebola':
           {
             const u = pokeUser(sender);
-            const id = (args[0] || '').toLowerCase();
+            const id = (args[0] || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             const qtd = parseInt(args[1] || '1', 10);
             const bola = acharPokebola(id);
 
@@ -5984,7 +6452,7 @@ const emojiCmd = emojiDoComando(command);
         case 'ativarspawn':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo podem ativar o spawn!' }, { quoted: msg });
@@ -6000,7 +6468,7 @@ const emojiCmd = emojiDoComando(command);
         case 'desativarspawn':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo podem desativar!' }, { quoted: msg });
@@ -6145,7 +6613,7 @@ const emojiCmd = emojiDoComando(command);
             }
 
             // Pega o número real (phoneNumber) de quem tá atacando e de quem tá defendendo
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const getRealJid = (jid) => {
               const p = gm.participants.find(x => x.id === jid || x.lid === jid);
               return p && p.phoneNumber ? p.phoneNumber : jid;
@@ -6294,7 +6762,7 @@ const emojiCmd = emojiDoComando(command);
         //          SHIZUKI CITY — COMANDOS
         // ═══════════════════════════════════════════════
 
-        case 'shizukicity', 'espiao', 'verlogs', 'logs', 'banco', 'emprestar', 'doardinheiro', 'doar', 'comprarloja', 'loja', 'vender', 'vendercarro', 'pescar', 'minerar', 'corrida', 'loteria', 'roubar', 'assaltar', 'sequestrar', 'promocao', 'promoção', 'demitir', 'demissao', 'ferias', 'férias', 'segundotrabalho', 'bico', 'investir', 'resgatar', 'empresa', 'aposentar', 'aposentadoria', 'casar', 'divorciar', 'divorcio', 'adotar', 'meusfilhos', 'filhos', 'mudarnome':
+        case         'espiao', 'verlogs', 'logs', 'banco', 'emprestar', 'doardinheiro', 'doar', 'comprarloja', 'loja', 'vender', 'vendercarro', 'pescar', 'minerar', 'corrida', 'loteria', 'roubar', 'assaltar', 'sequestrar', 'promocao', 'promoção', 'demitir', 'demissao', 'ferias', 'férias', 'segundotrabalho', 'bico', 'investir', 'resgatar', 'empresa', 'aposentar', 'aposentadoria', 'casar', 'divorciar', 'divorcio', 'adotar', 'meusfilhos', 'filhos', 'mudarnome':
           {
             const u = shizukiUser(sender);
             const texto = textoShizukiCity(u, sender, pushName);
@@ -6370,7 +6838,7 @@ const emojiCmd = emojiDoComando(command);
               from,
               timer: null
             };
-            provasAtivas.set(sender, prova);
+            provasAtivas.set(__getNumLimpo(sender), prova);
 
             await sock.sendMessage(from, {
               text: `📝 *PROVA INICIADA!*\n\n💼 Cargo: *${emprego.nome}* ${emprego.emoji}\n❓ Perguntas: *7*\n✅ Acertos mínimos: *5*\n⏰ Tempo total: *10 minutos*\n\n🎯 Boa sorte, @${sender.split('@')[0]}!`,
@@ -6381,9 +6849,9 @@ const emojiCmd = emojiDoComando(command);
             await enviarPerguntaShizuki(sock, from, sender);
 
             prova.timer = setTimeout(async () => {
-              const p = provasAtivas.get(sender);
+              const p = provasAtivas.get(__getNumLimpo(sender));
               if (!p) return;
-              provasAtivas.delete(sender);
+              provasAtivas.delete(__getNumLimpo(sender));
               await sock.sendMessage(from, {
                 text: `⏰ *TEMPO ESGOTADO!*\n\nVocê acertou *${p.acertos}/7*.\n❌ Precisa de *5* pra passar.\n\n💡 Tente de novo em 10 minutos.`
               });
@@ -6591,7 +7059,7 @@ const emojiCmd = emojiDoComando(command);
         case 'legendabv':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
@@ -6619,7 +7087,7 @@ const emojiCmd = emojiDoComando(command);
         case 'boasvindas':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
@@ -6645,7 +7113,7 @@ const emojiCmd = emojiDoComando(command);
         case 'linkgrupo':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
@@ -6667,7 +7135,7 @@ const emojiCmd = emojiDoComando(command);
         case 'sorteio':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
@@ -6694,7 +7162,7 @@ const emojiCmd = emojiDoComando(command);
         case 'gp':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
@@ -6722,7 +7190,7 @@ const emojiCmd = emojiDoComando(command);
         case 'rmopengp':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
@@ -6756,7 +7224,7 @@ const emojiCmd = emojiDoComando(command);
         case 'ativareventos':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Só admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./shizuki_eventos.json');
@@ -6771,7 +7239,7 @@ const emojiCmd = emojiDoComando(command);
         case 'desativareventos':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Só admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./shizuki_eventos.json');
@@ -6947,56 +7415,45 @@ const emojiCmd = emojiDoComando(command);
         // ═══════════════════════════════════════════════
 
         case 'menuvip':
-        case 'vip':
           {
-            if (!eVIP(sender) && !isDono) {
-              await sock.sendMessage(from, {
-                text: '🚫 *ACESSO RESTRITO A VIPS!*\n\n💎 Este menu é exclusivo pra membros VIP.\n\n💡 Fale com o dono pra adquirir o seu!'
-              }, { quoted: msg });
-              break;
-            }
-            const nomeU = nomeExibicao(sender, pushName);
-            const restoU = diasRestantesVip(sender) || '∞';
+            const prefixoAtual = config.prefixo || '!';
             const menuVip =
-              '╭━━━━━━━━━━━━━━━━━━━━━━━━╮\n' +
-              '┃   💎 𝐌𝐄𝐍𝐔 𝐕𝐈𝐏 💎   ┃\n' +
-              '╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n' +
-              '╭─ ⟨ 👑 ⟩ ─╮\n' +
-              '   💎 𝐂𝐎𝐌𝐀𝐍𝐃𝐎𝐒\n' +
-              '╰─ ⟨ 👑 ⟩ ─╯\n' +
-              '   ┃ 💎 !vipinfo\n' +
-              '   ┃ 💎 !bauvip\n' +
-              '   ┃ 💎 !apelido <texto>\n' +
-              '   ┃ 💎 !rmapelido\n' +
-              '   ┃ 💎 !vipprotecao\n' +
-              '   ┃ 💎 !figanime <qtd>\n\n' +
-              '╭─ ⟨ 🏴 ⟩ ─╮\n' +
-              '   💎 𝐅𝐀𝐂𝐂̧𝐎̃𝐄𝐒\n' +
-              '╰─ ⟨ 🏴 ⟩ ─╯\n' +
-              '   ┃ 💎 !cla criar <nome>\n' +
-              '   ┃ 💎 !cla convidar @pessoa\n' +
-              '   ┃ 💎 !cla info\n' +
-              '   ┃ 💎 !cla membros\n' +
-              '   ┃ 💎 !cla sair\n' +
-              '   ┃ 💎 !cla depositar <valor>\n' +
-              '   ┃ 💎 !cla caixa\n' +
-              '   ┃ 💎 !cla guerra <id> <valor>\n' +
-              '   ┃ 💎 !cla ranking\n' +
-              '   ┃ 💎 !cla dissolver\n\n' +
-              '╭─ ⟨ ⚔️ ⟩ ─╮\n' +
-              '   💎 𝐀𝐑𝐄𝐍𝐀 𝐕𝐈𝐏\n' +
-              '╰─ ⟨ ⚔️ ⟩ ─╯\n' +
-              '   ┃ 💎 !arena @pessoa <valor>\n' +
-              '   ┃ 💎 !atacar\n' +
-              '   ┃ 💎 !defender\n' +
-              '   ┃ 💎 !magia <nome>\n' +
-              '   ┃ 💎 !lojaarena\n' +
-              '   ┃ 💎 !comprararmadura <id>\n' +
-              '   ┃ 💎 !desistir\n\n' +
-              '╭─ ⟨ 💜 ⟩ ─╮\n' +
-              '   💎 VIP: ' + nomeU + ' 💎\n' +
-              '   ⏳ Expira em: ' + restoU + '\n' +
-              '╰─ ⟨ 💜 ⟩ ─╯';
+              '╭─────────────────────╮\n\n' +
+              '🌷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
+              '✨ Área exclusiva *VIP* liberada! (๑>ᴗ<๑)\n\n' +
+              '╭─〔 💎 *MENU VIP* 〕━━━━⬣\n' +
+              '┃\n' +
+              '┃ 👑 *COMANDOS VIP*\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'vipinfo\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'bauvip\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'apelido <texto>\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'rmapelido\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'vipprotecao\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'figanime <qtd>\n' +
+              '┃\n' +
+              '┃ 🏴 *FACÇÕES*\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla criar <nome>\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla convidar @pessoa\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla info\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla membros\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla sair\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla depositar <valor>\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla caixa\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla guerra <id> <valor>\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla ranking\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'cla dissolver\n' +
+              '┃\n' +
+              '┃ ⚔️ *ARENA VIP*\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'arena @pessoa <valor>\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'atacar\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'defender\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'magia <nome>\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'lojaarena\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'comprararmadura <id>\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'desistir\n' +
+              '┃\n' +
+              '╰━━━━━━━━━━━━━━━━━━⬣\n' +
+              '╰─────────────────────╯';
 
             if (fs.existsSync(MENU_IMAGE_PATH)) {
               try {
@@ -7009,7 +7466,6 @@ const emojiCmd = emojiDoComando(command);
             }
           }
           break;
-
         case 'darvip':
           {
             if (!isDonoReal) {
@@ -7355,7 +7811,7 @@ const emojiCmd = emojiDoComando(command);
               break;
             }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) {
                 await sock.sendMessage(from, { text: '❌ Poucos membros pra fazer o ranking!' }, { quoted: msg });
@@ -7833,7 +8289,7 @@ const emojiCmd = emojiDoComando(command);
               await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg });
               break;
             }
-            const gmInt = await sock.groupMetadata(from);
+            const gmInt = await globalThis.__getGroupMetadata(from);
             const ehAdmInt = !!gmInt.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmInt && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins, líderes e o dono podem configurar o intervalo!' }, { quoted: msg });
@@ -7863,7 +8319,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -7886,7 +8342,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -7909,7 +8365,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -7932,7 +8388,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -7955,7 +8411,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -7978,7 +8434,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -8001,7 +8457,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -8024,7 +8480,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -8047,7 +8503,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -8070,7 +8526,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -8093,7 +8549,7 @@ const emojiCmd = emojiDoComando(command);
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
-              const gmR = await sock.groupMetadata(from);
+              const gmR = await globalThis.__getGroupMetadata(from);
               const membrosR = gmR.participants.filter(p => p.id !== sock.user?.id);
               if (membrosR.length < 2) { await sock.sendMessage(from, { text: '❌ Poucos membros!' }, { quoted: msg }); break; }
               const qtdR = 5 + Math.floor(Math.random() * 2);
@@ -8189,17 +8645,17 @@ const emojiCmd = emojiDoComando(command);
                 break;
               }
               if (pesquisa.erro === 'api_off') {
-                await sock.sendMessage(from, { text: '╭━━━〔 🚫 𝐀𝐏𝐈 𝐄𝐒𝐆𝐎𝐓𝐀𝐃𝐀 🚫 〕━━━╮\n┃\n┃ ❌ A API atingiu o limite!\n┃\n┃ 📊 Status: *Fora de serviço*\n┃ ⏰ Volta em: *algumas horas*\n┃\n┃ 💜 Aguarde e tente de novo!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg });
+                await sock.sendMessage(from, { text: '╭━━━〔 🎵 𝐍𝐀̃𝐎 𝐀𝐂𝐇𝐄𝐈 🎵 〕━━━╮\n┃\n┃ 🔍 Oii, eu procurei por todo canto...\n┃ 📉 Mas não achei a música!\n┃\n┃ 💡 _Tente pesquisar com o nome do cantor ou o link do YouTube._\n┃\n┃ 💜 Prometo me esforçar mais!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg });
                 break;
               }
               const infoMusica = pesquisa.data && pesquisa.data[0];
               if (!infoMusica) {
-                await sock.sendMessage(from, { text: '❌ Não encontrei essa música!' }, { quoted: msg });
+                await sock.sendMessage(from, { text: '╭━━━〔 🎵 𝐍𝐀̃𝐎 𝐀𝐂𝐇𝐄𝐈 🎵 〕━━━╮\n┃\n┃ 🔍 Oii, eu procurei por todo canto...\n┃ 📉 Mas não achei a música!\n┃\n┃ 💡 _Tente pesquisar com o nome do cantor ou o link do YouTube._\n┃\n┃ 💜 Prometo me esforçar mais!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg });
                 break;
               }
               const audio = await apiBronxys.playAudio(buscaP);
               if (audio.erro === 'api_off') {
-                await sock.sendMessage(from, { text: '╭━━━〔 🚫 𝐀𝐏𝐈 𝐄𝐒𝐆𝐎𝐓𝐀𝐃𝐀 🚫 〕━━━╮\n┃\n┃ ❌ A API atingiu o limite!\n┃\n┃ 💜 Aguarde e tente de novo!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg });
+                await sock.sendMessage(from, { text: '╭━━━〔 🎵 𝐍𝐀̃𝐎 𝐀𝐂𝐇𝐄𝐈 🎵 〕━━━╮\n┃\n┃ 🔍 Oii, eu procurei por todo canto...\n┃ 📉 Mas não achei a música!\n┃\n┃ 💡 _Tente pesquisar com o nome do cantor ou o link do YouTube._\n┃\n┃ 💜 Prometo me esforçar mais!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg });
                 break;
               }
               if (!audio.ok) {
@@ -8230,7 +8686,7 @@ const emojiCmd = emojiDoComando(command);
               }, { quoted: msg });
             } catch (e) {
               console.error('Erro play:', e.message);
-              await sock.sendMessage(from, { text: '╭━━━〔 😢 𝐎𝐏𝐒... 〕━━━╮\n┃\n┃ ❌ Não consegui achar essa música!\n┃\n┃ 💡 Verifique o nome e tente de novo.\n┃\n┃ 💜 Prometo me esforçar mais!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg });
+              await sock.sendMessage(from, { text: '╭━━━〔 🎵 𝐍𝐀̃𝐎 𝐀𝐂𝐇𝐄𝐈 🎵 〕━━━╮\n┃\n┃ 🔍 Oii, eu procurei por todo canto...\n┃ 📉 Mas não achei a música!\n┃\n┃ 💡 _Tente pesquisar com o nome do cantor ou o link do YouTube._\n┃\n┃ 💜 Prometo me esforçar mais!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg });
             }
           }
           break;
@@ -8328,7 +8784,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antilink':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
 
@@ -8357,7 +8813,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antiflood':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
 
@@ -8387,7 +8843,7 @@ const emojiCmd = emojiDoComando(command);
         case 'bl':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
 
@@ -8429,7 +8885,7 @@ const emojiCmd = emojiDoComando(command);
         case 'marcartodos':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const txt = args.join(' ').trim();
@@ -8449,7 +8905,7 @@ const emojiCmd = emojiDoComando(command);
         case 'apagar':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctxAp = msg.message.extendedTextMessage?.contextInfo;
@@ -8475,7 +8931,7 @@ const emojiCmd = emojiDoComando(command);
         case 'regras':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
 
@@ -8505,7 +8961,7 @@ const emojiCmd = emojiDoComando(command);
         case 'listaradv':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const advs = carregarJSON(FILE_ADVS);
@@ -8529,7 +8985,7 @@ const emojiCmd = emojiDoComando(command);
         case 'promoverall':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const naoAdm = gm.participants.filter(p => !p.admin).map(p => p.id);
@@ -8553,7 +9009,7 @@ const emojiCmd = emojiDoComando(command);
         case 'rebaixarall':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const criadorGp = gm.owner || (gm.participants.find(p => p.admin === 'superadmin')?.id);
@@ -8586,7 +9042,7 @@ const emojiCmd = emojiDoComando(command);
         case 'modoparceria':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, {
@@ -8625,7 +9081,7 @@ const emojiCmd = emojiDoComando(command);
         case 'addparceria':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             const ehLider = (config.lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
             if (!ehAdm && !ehLider && !isDono) {
@@ -8672,7 +9128,7 @@ const emojiCmd = emojiDoComando(command);
         case 'rmparceria':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             const ehLider = (config.lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
             if (!ehAdm && !ehLider && !isDono) {
@@ -8710,7 +9166,7 @@ const emojiCmd = emojiDoComando(command);
         case 'parcerias':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, {
@@ -8750,7 +9206,7 @@ const emojiCmd = emojiDoComando(command);
         case 'hist':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctxH = msg.message.extendedTextMessage?.contextInfo;
@@ -8797,7 +9253,7 @@ const emojiCmd = emojiDoComando(command);
         case 'add':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctx = msg.message.extendedTextMessage?.contextInfo;
@@ -8819,7 +9275,7 @@ const emojiCmd = emojiDoComando(command);
         case 'infogrupo':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const criado = gm.creation ? new Date(gm.creation * 1000).toLocaleDateString('pt-BR') : 'Desconhecido';
             const admins = gm.participants.filter(p => p.admin).length;
             await sock.sendMessage(from, {
@@ -8838,7 +9294,7 @@ const emojiCmd = emojiDoComando(command);
         case 'topmembros':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const stats = carregarJSON(FILE_STATS);
@@ -8863,7 +9319,7 @@ const emojiCmd = emojiDoComando(command);
         case 'apresentar':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctx = msg.message.extendedTextMessage?.contextInfo;
@@ -8884,7 +9340,7 @@ const emojiCmd = emojiDoComando(command);
         case 'setbye':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const q = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -8908,7 +9364,7 @@ const emojiCmd = emojiDoComando(command);
         case 'setlegendasaida':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./saidas.json');
@@ -8931,7 +9387,7 @@ const emojiCmd = emojiDoComando(command);
         case 'fakechat':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const txt = args.join(' ').trim();
@@ -8950,7 +9406,7 @@ const emojiCmd = emojiDoComando(command);
         case 'frase':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const txt = args.join(' ').trim();
@@ -8971,7 +9427,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antistatus':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antistatus.json');
@@ -8992,7 +9448,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antipromocao':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antipromocao.json');
@@ -9013,7 +9469,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antifake':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antifake.json');
@@ -9034,7 +9490,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antiporn':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antiporn.json');
@@ -9055,7 +9511,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antipalavrao':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antipalavrao.json');
@@ -9076,7 +9532,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antivideo':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antivideo.json');
@@ -9097,7 +9553,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antiimagem':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antiimagem.json');
@@ -9118,7 +9574,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antisticker':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antisticker.json');
@@ -9139,7 +9595,7 @@ const emojiCmd = emojiDoComando(command);
         case 'antiemoji':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antiemoji.json');
@@ -9164,7 +9620,7 @@ const emojiCmd = emojiDoComando(command);
         case 'mododivertido':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./mododivertido.json');
@@ -9185,7 +9641,7 @@ const emojiCmd = emojiDoComando(command);
         case 'modonatal':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./modonatal.json');
@@ -9206,7 +9662,7 @@ const emojiCmd = emojiDoComando(command);
         case 'modohalloween':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./modohalloween.json');
@@ -9227,119 +9683,110 @@ const emojiCmd = emojiDoComando(command);
 
 // MENU BRINCADEIRAS
         case 'menubrincadeiras':
-        case 'brincadeiras':
           {
-            const menuBrin =
-              `╭━━━━━━━━━━━━━━━━━━━━━━━━╮\n` +
-              `┃  💜 𝐒𝐇𝐈𝐙𝐔𝐊𝐈 𝐁𝐎𝐓 - 𝐌𝐃 💜  ┃\n` +
-              `╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n` +
-              `╭─ ⟨ 🎮 ⟩ ─╮\n` +
-              `   💜 𝐁𝐑𝐈𝐍𝐂𝐀𝐃𝐄𝐈𝐑𝐀𝐒 💜\n` +
-              `╰─ ⟨ 🎮 ⟩ ─╯\n\n` +
-              `╭─ ⟨ 💋 ⟩ ─╮\n` +
-              `   💜 𝐀𝐂̧𝐎̃𝐄𝐒\n` +
-              `╰─ ⟨ 💋 ⟩ ─╯\n` +
-              `   ┃ 💜 !beijo @pessoa\n` +
-              `   ┃ 💜 !abraço @pessoa\n` +
-              `   ┃ 💜 !matar @pessoa\n` +
-              `   ┃ 💜 !cafune @pessoa\n` +
-              `   ┃ 💜 !colinho @pessoa\n` +
-              `   ┃ 💜 !socar @pessoa\n` +
-              `   ┃ 💜 !chutar @pessoa\n` +
-              `   ┃ 💜 !esfaquear @pessoa\n` +
-              `   ┃ 💜 !bater @pessoa\n` +
-              `   ┃ 💜 !dancar @pessoa\n` +
-              `   ┃ 💜 !cantar @pessoa\n\n` +
-              `   ┃ 💜 !lamber @pessoa\n` +
-              `   ┃ 💜 !morder @pessoa\n` +
-              `   ┃ 💜 !acenar @pessoa\n` +
-              `   ┃ 💜 !piscar @pessoa\n` +
-              `   ┃ 💜 !cuspir @pessoa\n` +
-              `   ┃ 💜 !empurrar @pessoa\n` +
-              `   ┃ 💜 !pisar @pessoa\n` +
-              `   ┃ 💜 !estrangular @pessoa\n` +
-              `   ┃ 💜 !queimar @pessoa\n` +
-              `   ┃ 💜 !envenenar @pessoa\n` +
-              `   ┃ 💜 !explodir @pessoa\n` +
-              `╭─ ⟨ 🎯 ⟩ ─╮\n` +
-              `   💜 𝐉𝐎𝐆𝐎𝐒\n` +
-              `╰─ ⟨ 🎯 ⟩ ─╯\n` +
-              `   ┃ 💜 !quiz\n` +
-              `   ┃ 💜 !jogodavelha @pessoa\n` +
-              `   ┃ 💜 !forca @pessoa\n` +
-              `   ┃ 💜 !memoria @pessoa\n` +
-              `   ┃ 💜 !duelo @pessoa\n\n` +
-              `╭─ ⟨ 🏆 ⟩ ─╮\n` +
-              `   💜 𝐑𝐀𝐍𝐊𝐈𝐍𝐆𝐒\n` +
-              `╰─ ⟨ 🏆 ⟩ ─╯\n` +
-              `   ┃ 💜 !ranklinda\n` +
-              `   ┃ 💜 !ranklindo\n` +
-              `   ┃ 💜 !rankbebado\n` +
-              `   ┃ 💜 !rankfiel\n` +
-              `   ┃ 💜 !rankputa\n` +
-              `   ┃ 💜 !rankgay\n` +
-              `   ┃ 💜 !rankcorno\n` +
-              `   ┃ 💜 !rankotaku\n` +
-              `   ┃ 💜 !rankpobre\n` +
-              `   ┃ 💜 !rankrico\n` +
-              `   ┃ 💜 !rankfeio\n` +
-              `   ┃ 💜 !rankgostosa\n` +
-              `   ┃ 💜 !rankgostoso\n` +
-              `   ┃ 💜 !rankgado\n` +
-              `   ┃ 💜 !rankpau\n` +
-              `   ┃ 💜 !rankbct\n` +
-              `   ┃ 💜 !rankburro\n` +
-              `   ┃ 💜 !rankinteligente\n` +
-              `   ┃ 💜 !rankchato\n` +
-              `   ┃ 💜 !rankengracado\n` +
-              `   ┃ 💜 !ranksortudo\n` +
-              `   ┃ 💜 !rankazarado\n` +
-              `   ┃ 💜 !ranklouco\n` +
-              `   ┃ 💜 !ranksafado\n` +
-              `   ┃ 💜 !rankromantico\n` +
-              `   ┃ 💜 !rankmaluco\n` +
-              `   ┃ 💜 !rankchifrudo\n` +
+            const prefixoAtual = config.prefixo || '!';
+            const menuBrincadeiras =
+              '╭─────────────────────╮\n\n' +
+              '🌷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
+              '✨ Bora se divertir um pouco? (๑>ᴗ<๑)\n\n' +
+              '╭─〔 🎮 *MENU BRINCADEIRAS* 〕━━━━⬣\n' +
+              '┃\n' +
+              '┃ 💋 *AÇÕES*\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'beijo @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'abraço @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'comer @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'gozar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'matar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'cafune @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'colinho @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'socar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'chutar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'esfaquear @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'bater @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'dancar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'cantar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'lamber @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'morder @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'acenar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'piscar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'cuspir @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'empurrar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'pisar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'estrangular @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'queimar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'envenenar @pessoa\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'explodir @pessoa\n' +
+              '┃\n' +
+              '┃ 🎯 *JOGOS*\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'quiz\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'jogodavelha @pessoa\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'forca @pessoa\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'memoria @pessoa\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'duelo @pessoa\n' +
+              '┃\n' +
+              '┃ 🏆 *RANKINGS*\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'ranklinda\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'ranklindo\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankbebado\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankfiel\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankputa\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankgay\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankcorno\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankotaku\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankpobre\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankrico\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankfeio\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankgostosa\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankgostoso\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankgado\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankpau\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankbct\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankburro\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankinteligente\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankchato\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankengracado\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'ranksortudo\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankazarado\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'ranklouco\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'ranksafado\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankromantico\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankmaluco\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'rankchifrudo\n' +
+              '┃\n' +
+              '┃ 📊 *PORCENTAGENS*\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'ship @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'corno @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'gay @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'gostosa @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'gostoso @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'feio @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'bonito @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'rico @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'pobre @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'gado @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'safado @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'chato @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'louco @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'sortudo @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'azarado @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'pau @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'bunda @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'chifre @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'inteligente @pessoa\n' +
+              '┃ 🎀◗ ' + prefixoAtual + 'burro @pessoa\n' +
+              '┃\n' +
+              '╰━━━━━━━━━━━━━━━━━━⬣\n' +
+              '╰─────────────────────╯';
 
-              `╭─ ⟨ 📊 ⟩ ─╮\n` +
-              `   💜 𝐏𝐎𝐑𝐂𝐄𝐍𝐓𝐀𝐆𝐄𝐍𝐒\n` +
-              `╰─ ⟨ 📊 ⟩ ─╯\n` +
-              `   ┃ 💜 !ship @pessoa\n` +
-              `   ┃ 💜 !corno @pessoa\n` +
-              `   ┃ 💜 !gay @pessoa\n` +
-              `   ┃ 💜 !gostosa @pessoa\n` +
-              `   ┃ 💜 !gostoso @pessoa\n` +
-              `   ┃ 💜 !feio @pessoa\n` +
-              `   ┃ 💜 !bonito @pessoa\n` +
-              `   ┃ 💜 !rico @pessoa\n` +
-              `   ┃ 💜 !pobre @pessoa\n` +
-              `   ┃ 💜 !gado @pessoa\n` +
-              `   ┃ 💜 !safado @pessoa\n` +
-              `   ┃ 💜 !chato @pessoa\n` +
-              `   ┃ 💜 !louco @pessoa\n` +
-              `   ┃ 💜 !sortudo @pessoa\n` +
-              `   ┃ 💜 !azarado @pessoa\n` +
-              `   ┃ 💜 !pau @pessoa\n` +
-              `   ┃ 💜 !bunda @pessoa\n` +
-              `   ┃ 💜 !chifre @pessoa\n` +
-              `   ┃ 💜 !inteligente @pessoa\n` +
-              `   ┃ 💜 !burro @pessoa\n\n` +
-              `╭─ ⟨ 🎵 ⟩ ─╮\n` +
-              `   💜 𝐄𝐗𝐓𝐑𝐀𝐒\n` +
-              `╰─ ⟨ 🎵 ⟩ ─╯\n` +
-              `   ┃ 💜 !perfil\n` +
-              `   ┃ 💜 !streak\n\n` +
-              `╭─ ⟨ ❆ ⟩ ─╮\n` +
-              `   💜 𝐁𝐎𝐌 𝐉𝐎𝐆𝐎! 💜\n` +
-              `╰─ ⟨ ❆ ⟩ ─╯`;
             if (fs.existsSync(MENU_IMAGE_PATH)) {
               try {
-                await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuBrin, mentions: [sender] }, { quoted: msg });
+                await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuBrincadeiras, mentions: [sender] }, { quoted: msg });
               } catch (e) {
-                await sock.sendMessage(from, { text: menuBrin, mentions: [sender] }, { quoted: msg });
+                await sock.sendMessage(from, { text: menuBrincadeiras, mentions: [sender] }, { quoted: msg });
               }
             } else {
-              await sock.sendMessage(from, { text: menuBrin, mentions: [sender] }, { quoted: msg });
-            } // FOTO NOS MENUS
+              await sock.sendMessage(from, { text: menuBrincadeiras, mentions: [sender] }, { quoted: msg });
+            }
           }
           break;
 
@@ -9936,29 +10383,53 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
-        case 'doardinheiro':
-        case 'doar':
-          {
-            if (!isGroup) break;
-            const ctx = msg.message.extendedTextMessage?.contextInfo;
-            const alvo = ctx?.mentionedJid?.[0] || ctx?.participant;
-            if (!alvo) { await sock.sendMessage(from, { text: '⚠️ Marque a pessoa!\n\nEx: `!doardinheiro @pessoa 100`' }, { quoted: msg }); break; }
-            if (alvo === sender) { await sock.sendMessage(from, { text: '😅 Não pode doar pra si mesmo!' }, { quoted: msg }); break; }
-            const valor = parseInt(args.find(a => /^\d+$/.test(a)) || '0', 10);
-            if (!valor || valor < 1) { await sock.sendMessage(from, { text: '⚠️ Informe o valor!\n\nEx: `!doardinheiro @pessoa 100`' }, { quoted: msg }); break; }
-            const u = shizukiUser(sender);
-            if (valor > u.reais) { await sock.sendMessage(from, { text: `💸 Saldo insuficiente!\n\n💰 Você tem: *${formatarReais(u.reais)}*` }, { quoted: msg }); break; }
-            const uAlvo = shizukiUser(alvo);
-            u.reais -= valor;
-            uAlvo.reais += valor;
-            salvarShizuki(sender, u);
-            salvarShizuki(alvo, uAlvo);
-            await sock.sendMessage(from, {
-              text: `╭━━━〔 💜 𝐃𝐎𝐀𝐂̧𝐀̃𝐎 〕━━━╮\n┃\n┃ 💜 Você doou *${formatarReais(valor)}*\n┃    para @${alvo.split('@')[0]}!\n┃\n┃ 🕊️ Que coração generoso!\n┃\n╰━━━━━━━━━━━━━━━━━━╯`,
-              mentions: [alvo]
-            }, { quoted: msg });
-          }
-          break;
+case 'doardinheiro':
+case 'transferir':
+case 'doar':
+case 'pix':
+  {
+    if (!isGroup) break;
+    const ctx = msg.message.extendedTextMessage?.contextInfo;
+    const alvo = ctx?.mentionedJid?.[0] || ctx?.participant;
+
+    if (!alvo) { 
+      await sock.sendMessage(from, { text: '╭─────────────────────╮\n   ⚠️ 𝐀𝐓𝐄𝐍𝐂̧𝐀̃𝐎 ⚠️\n╰─────────────────────╯\n\n💬 Marque a pessoa que vai receber!\n\n💡 *Ex:* ' + (config.prefixo || '!') + 'transferir @pessoa 100' }, { quoted: msg }); 
+      break; 
+    }
+    
+    if (alvo === sender) { 
+      await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🤔 𝐎𝐏𝐒... 🤔\n╰─────────────────────╯\n\n🛑 Você não pode transferir dinheiro para você mesmo, bobinho(a)!\n\n💡 _Tente marcar outra pessoa._' }, { quoted: msg }); 
+      break; 
+    }
+    
+    const valor = parseInt(args.find(a => /^\d+$/.test(a)) || '0', 10);
+    
+    if (!valor || valor < 1) { 
+      await sock.sendMessage(from, { text: '╭─────────────────────╮\n   ⚠️ 𝐀𝐓𝐄𝐍𝐂̧𝐀̃𝐎 ⚠️\n╰─────────────────────╯\n\n💬 Informe o valor da transferência!\n\n💡 *Ex:* ' + (config.prefixo || '!') + 'transferir @pessoa 100' }, { quoted: msg }); 
+      break; 
+    }
+    
+    const u = shizukiUser(sender);
+    
+    if (valor > u.reais) { 
+      await sock.sendMessage(from, { text: '╭─────────────────────╮\n   ❌ 𝐄𝐑𝐑𝐎 𝐍𝐎 𝐏𝐈𝐗 ❌\n╰─────────────────────╯\n\n⚠️ Oii @' + sender.split('@')[0] + ', você não tem tudo isso na conta!\n💰 *Seu saldo:* R$ ' + u.reais.toFixed(2).replace('.', ',') + '\n📉 *Valor pedido:* R$ ' + valor.toFixed(2).replace('.', ',') + '\n\n💡 _Trabalhe mais ou tente um valor menor._', mentions: [sender] }, { quoted: msg }); 
+      break; 
+    }
+    
+    const uAlvo = shizukiUser(alvo);
+    u.reais -= valor;
+    uAlvo.reais += valor;
+    salvarShizuki(sender, u);
+    salvarShizuki(alvo, uAlvo);
+
+    const dataAtual = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+    await sock.sendMessage(from, {
+      text: '╭─────────────────────╮\n   💸 𝐂𝐎𝐌𝐏𝐑𝐎𝐕𝐀𝐍𝐓𝐄 𝐏𝐈𝐗 💸\n╰─────────────────────╯\n\n💜 *De:* @' + sender.split('@')[0] + '\n💜 *Para:* @' + alvo.split('@')[0] + '\n💰 *Valor:* R$ ' + valor.toFixed(2).replace('.', ',') + '\n📅 *Data:* ' + dataAtual + '\n🏦 *Instituição:* Shizuki Bank\n🔖 *ID da Transação:* #PIX' + Math.floor(Math.random() * 900000 + 100000) + '\n\n✨ _Transferência realizada com sucesso!_\n\n╰━━━━━━━━━━━━━━━━━━⬣',
+      mentions: [sender, alvo]
+    }, { quoted: msg });
+  }
+  break;
 
         // ═══════════════════════════════════════════════
         //     VIDA ÚTIL DOS VEÍCULOS
@@ -10247,7 +10718,7 @@ const emojiCmd = emojiDoComando(command);
         case 'bl':
           {
             if (!isGroup) break;
-            const gm = await sock.groupMetadata(from);
+            const gm = await globalThis.__getGroupMetadata(from);
             const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg });
@@ -10346,7 +10817,7 @@ const emojiCmd = emojiDoComando(command);
               for (const g of grupos) {
                 const total = (db[g].mensagens || []).length;
                 let nome = g;
-                try { const m = await sock.groupMetadata(g); nome = m.subject; } catch (e) {}
+                try { const m = await globalThis.__getGroupMetadata(g); nome = m.subject; } catch (e) {}
                 txt += `┃ 📁 *${nome}*\n┃    ┗ 📊 ${total} mensagens\n┃\n`;
               }
               txt += `┃ 💡 Use: *!verlogs <nome>* 🎀\n┃\n╰━━━━━━━━━━━━━━━━━━╯`;
@@ -10358,7 +10829,7 @@ const emojiCmd = emojiDoComando(command);
             for (const g of Object.keys(db)) {
               if (g === '__global') continue;
               try {
-                const m = await sock.groupMetadata(g);
+                const m = await globalThis.__getGroupMetadata(g);
                 if (m.subject.toLowerCase().includes(nomeBusca)) { grupoEncontrado = g; break; }
               } catch (e) {}
             }
@@ -10370,7 +10841,7 @@ const emojiCmd = emojiDoComando(command);
 
             const todas = db[grupoEncontrado].mensagens;
             const ultimas = todas.slice(-qtd);
-            const gm = await sock.groupMetadata(grupoEncontrado).catch(() => ({ subject: 'Grupo' }));
+            const gm = await globalThis.__getGroupMetadata(grupoEncontrado).catch(() => ({ subject: 'Grupo' }));
 
             let txt = `╭━━━〔 📋 𝐔́𝐋𝐓𝐈𝐌𝐀𝐒 𝐌𝐄𝐍𝐒𝐀𝐆𝐄𝐍𝐒 〕━━━╮\n┃\n┃ 🕵️ *Grupo:* ${gm.subject}\n┃ 📊 *Total:* ${todas.length}/200\n┃ 📝 *Mostrando:* ${ultimas.length}\n┃\n╰━━━━━━━━━━━━━━━━━━╯\n\n🎀 *Aqui está o que rolou~*\n\n`;
 
@@ -10515,8 +10986,8 @@ const emojiCmd = emojiDoComando(command);
 
         case 'perfil':
           {
-            let alvo = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || 
-                       msg.message.extendedTextMessage?.contextInfo?.participant || 
+            let alvo = msg.message.extendedTextMessage?.contextInfo?.mentionedJid?.[0] ||
+                       msg.message.extendedTextMessage?.contextInfo?.participant ||
                        sender;
 
             let numeroFormatado = alvo.split('@')[0].replace(/[^0-9]/g, '');
@@ -10526,46 +10997,41 @@ const emojiCmd = emojiDoComando(command);
               numeroFormatado = sender.split('@')[0].replace(/[^0-9]/g, '');
             }
 
-            let nomeAlvo = obterNomeSalvo(alvo) || obterNomeSalvo(alvo.split('@')[0] + '@s.whatsapp.net');
-            
-            if (!nomeAlvo) {
-              if (alvo === sender || alvo.includes(sender.split('@')[0])) {
-                nomeAlvo = pushName;
-              } else {
-                nomeAlvo = `Utilizador ${numeroFormatado.slice(-4)}`;
-              }
-            }
-
             let numeroReal = numeroFormatado;
             let isAdminGrupo = '❌';
             let isLiderGrupo = '❌';
 
             if (isGroup) {
               try {
-                const groupMetadata = await sock.groupMetadata(from);
+                const groupMetadata = await globalThis.__getGroupMetadata(from);
                 const participants = groupMetadata.participants;
                 const participanteAlvo = participants.find(p => p.id === alvo || p.id.includes(numeroFormatado));
                 if (participanteAlvo) {
                   const pn = participanteAlvo.phoneNumber || participanteAlvo.jid;
                   if (pn && pn.includes('@s.whatsapp.net')) numeroReal = pn.split('@')[0].replace(/[^0-9]/g, '');
-                  if (participanteAlvo.admin === 'admin') isAdminGrupo = '✅';
+                  if (participanteAlvo.admin === 'admin' || participanteAlvo.admin === 'superadmin') isAdminGrupo = '✅';
                   if (participanteAlvo.admin === 'superadmin') isLiderGrupo = '✅';
                 }
-              } catch (e) {
-                console.error('Erro ao verificar dados do grupo para o perfil:', e);
-              }
+              } catch (e) {}
             }
 
             const donoAlvoLimpo = String(config.numeroDono).replace(/[^0-9]/g, '');
-            const isDonoAlvo = numeroFormatado === donoAlvoLimpo || alvo === config.numeroDono;
+            const isDonoAlvo = (typeof isDonoReal !== 'undefined' && alvo === sender ? isDonoReal : false) || numeroFormatado === donoAlvoLimpo || alvo === config.numeroDono;
+            const isVipAlvo = (typeof eVIP === 'function' && eVIP(alvo)) || (typeof badgeVip === 'function' && badgeVip(alvo));
 
             const statusDono = isDonoAlvo ? '🟢' : '🔴';
             const statusLider = isLiderGrupo === '✅' ? '🟢' : '🔴';
             const statusAdm = isAdminGrupo === '✅' ? '🟢' : '🔴';
-            const statusVip = '🔴';
+            const statusVip = isVipAlvo ? '🟢' : '🔴';
+            const badgeVipTxt = isVipAlvo ? ' 💎 VIP' : '';
 
             let stats = carregarJSON(FILE_STATS);
-            let dadosAlvo = stats[alvo] || stats[alvo.split('@')[0] + '@s.whatsapp.net'] || { mensagens: 0, comandos: 0, stickers: 0, saldo: 360 };
+            let dadosAlvo = stats[alvo] || stats[alvo.split('@')[0] + '@s.whatsapp.net'] || { mensagens: 0, comandos: 0, stickers: 0 };
+            
+            const dbShizuki = carregarJSON(FILE_SHIZUKI);
+            const dadosShizuki = dbShizuki[alvo] || dbShizuki[alvo.split('@')[0] + '@s.whatsapp.net'] || { reais: 20, casado: null, namorando: null };
+            const saldoReal = formatarReais(dadosShizuki.reais || 0);
+            const statusCasado = dadosShizuki.casado ? 'Sim 💍' : (dadosShizuki.namorando ? 'Namorando 💜' : 'Não 😿');
 
             let hashNum = Number(numeroFormatado.slice(-3)) || 50;
             let nivelGado = (hashNum * 7) % 101;
@@ -10574,13 +11040,13 @@ const emojiCmd = emojiDoComando(command);
             let nivelBeleza = ((hashNum * 19) % 50) + 50;
             let valorPrograma = nivelGostosura * 45;
 
-            const textoPerfil = 
+            const textoPerfil =
               `╔═══━━━─── ◈ ───━━━═══╗\n` +
-              `𖤐 𝐌𝐄𝐔 𝐏𝐄𝐑𝐅𝐈𝐋 𖤐\n` +
+              `   🌸 𝐌𝐄𝐔 𝐏𝐄𝐑𝐅𝐈𝐋 🌸\n` +
               `╚═══━━━─── ◈ ───━━━═══╝\n\n` +
               `╭───〔 🪪 𝐈𝐍𝐅𝐎𝐑𝐌𝐀𝐂̧𝐎̃𝐄𝐒 〕───╮\n` +
               `│\n` +
-              `│  🕶️ 𝐍𝐨𝐦𝐞 ➜ 『 @${alvo.split('@')[0]}${(typeof badgeVip === 'function' && badgeVip(alvo)) ? ' 💎 VIP' : ''} 』\n` + // BADGE VIP
+              `│  🕶️ 𝐍𝐨𝐦𝐞 ➜ 『 @${alvo.split('@')[0]}${badgeVipTxt} 』\n` +
               `│  ☎️ 𝐍𝐮́𝐦𝐞𝐫𝐨 ➜ 『 +${numeroReal} 』\n` +
               `│  📝 𝐁𝐢𝐨 ➜ 『 Sem Bio 』\n` +
               `│  💻 𝐂𝐨𝐧𝐞𝐜𝐭𝐚𝐝𝐨 𝐞𝐦 ➜ 『 Android 』\n` +
@@ -10591,12 +11057,12 @@ const emojiCmd = emojiDoComando(command);
               `│  ⚔️ 𝐋𝐢́𝐝𝐞𝐫 ➜ 〘 ${statusLider} 〙\n` +
               `│  🛡️ 𝐀𝐝𝐦 ➜ 〘 ${statusAdm} 〙\n` +
               `│  💎 𝐏𝐫𝐞𝐦𝐢𝐮𝐦 ➜ 〘 ${statusVip} 〙\n` +
-              `│  🪙 𝐒𝐚𝐥𝐝𝐨 ➜ 〘 ${dadosAlvo.saldo}$ 〙\n` +
-              `│  💍 𝐂𝐚𝐬𝐚𝐝𝐨 ➜ 〘 Não 😿 〙\n` +
+              `│  🪙 𝐒𝐚𝐥𝐝𝐨 ➜ 〘 ${saldoReal} 〙\n` +
+              `│  💍 𝐂𝐚𝐬𝐚𝐝𝐨 ➜ 〘 ${statusCasado} 〙\n` +
               `│\n` +
               `╰───────────────────╯\n\n` +
               `╔═══━━━─── ◈ ───━━━═══╗\n` +
-              `𖤐 𝐏𝐄𝐑𝐒𝐎𝐍𝐀𝐋𝐈𝐃𝐀𝐃𝐄 𖤐\n` +
+              `   🌸 𝐏𝐄𝐑𝐒𝐎𝐍𝐀𝐋𝐈𝐃𝐀𝐃𝐄 🌸\n` +
               `╚═══━━━─── ◈ ───━━━═══╝\n\n` +
               `╭───〔 📊 𝐒𝐓𝐀𝐓𝐔𝐒 〕───╮\n` +
               `│\n` +
@@ -10604,27 +11070,24 @@ const emojiCmd = emojiDoComando(command);
               `│  🌺 𝐍𝐢́𝐯𝐞𝐥 𝐏𝐮𝐭𝐚 ➜ ${nivelPuta}%\n` +
               `│  🌶 𝐍𝐢́𝐯𝐞𝐥 𝐆𝐨𝐱𝐭𝐨𝐬𝐮𝐫𝐚 ➜ ${nivelGostosura}%\n` +
               `│  🪞 𝐍𝐢́𝐯𝐞𝐥 𝐁𝐞𝐥𝐞𝐳𝐚 ➜ ${nivelBeleza}%\n` +
-              `│  💵 𝐏𝐫𝐨𝐠𝐫𝐚𝐦𝐚 ➜ R$${valorPrograma}\n` +
+              `│  💵 𝐏𝐫𝐨𝐠𝐫𝐚𝐦𝐚 ➜ ${formatarReais(valorPrograma)}\n` +
               `│\n` +
               `╰───────────────────╯\n\n` +
               `╔═══━━━─── ◈ ───━━━═══╗\n` +
-              `𖤐 𝐒𝐄𝐔𝐒 𝐃𝐀𝐃𝐎𝐒 𖤐\n` +
+              `   🌸 𝐒𝐄𝐔𝐒 𝐃𝐀𝐃𝐎𝐒 🌸\n` +
               `╚═══━━━─── ◈ ───━━━═══╝\n\n` +
               `╭───〔 📌 𝐄𝐒𝐓𝐀𝐓𝐈́𝐒𝐓𝐈𝐂𝐀𝐒 〕───╮\n` +
               `│\n` +
-              `│  🗨 𝐌𝐞𝐧𝐬𝐚𝐠𝐞𝐧𝐬 ➜ ${dadosAlvo.mensagens}\n` +
-              `│  ⚙ 𝐂𝐨𝐦𝐚𝐧𝐝𝐨𝐬 ➜ ${dadosAlvo.comandos}\n` +
-              `│  🖼️ 𝐒𝐭𝐢𝐜𝐤𝐞𝐫𝐬 ➜ ${dadosAlvo.stickers}\n` +
+              `│  🗨 𝐌𝐞𝐧𝐬𝐚𝐠𝐞𝐧𝐬 ➜ ${dadosAlvo.mensagens || 0}\n` +
+              `│  ⚙ 𝐂𝐨𝐦𝐚𝐧𝐝𝐨𝐬 ➜ ${dadosAlvo.comandos || 0}\n` +
+              `│  🖼️ 𝐒𝐭𝐢𝐜𝐤𝐞𝐫𝐬 ➜ ${dadosAlvo.stickers || 0}\n` +
               `│\n` +
               `╰───────────────────╯\n\n` +
               `╭━━━━━━━━━━━━━━━━━━╮\n` +
-              `┃ 𖤐 𝐒𝐇𝐈𝐙𝐔𝐊𝐈 𝐁𝐎𝐓 𖤐 ┃\n` +
+              `┃ 🌸 𝐒𝐇𝐈𝐙𝐔𝐊𝐈 𝐁𝐎𝐓 - 𝐌𝐃 🌸 ┃\n` +
               `╰━━━━━━━━━━━━━━━━━━╯`;
 
-            await sock.sendMessage(from, {
-              text: textoPerfil,
-              mentions: [alvo]
-            }, { quoted: msg });
+            await sock.sendMessage(from, { text: textoPerfil, mentions: [alvo] }, { quoted: msg });
           }
           break;
 
@@ -10659,21 +11122,41 @@ const emojiCmd = emojiDoComando(command);
           break;
 
         case 'menubaixar':
-        case 'baixar':
           {
+            const prefixoAtual = config.prefixo || '!';
             const menuBaixar =
-              `╭─〔 💜 _${config.nomeBot}_ 〕─╮\n\n` +
-              `╭─〔 📥 _Menu Baixar_ 〕─╮\n\n` +
-              `╭─〔 📥 _Downloads_ 〕─╮\n\n` +
-              `💜 !play <nome>\n` +
-              `💜 !playvideo <nome>\n` +
-              `💜 !instagram <link>\n` +
-              `💜 !s (figurinha)\n` +
-              `💜 !brat <texto>\n` +
-              `💜 !toimg\n` +
-              `💜 !take\n\n` +
-              `╰────────────────────╯`;
-            await sock.sendMessage(from, { text: menuBaixar }, { quoted: msg });
+              '╭─────────────────────╮\n\n' +
+              '🌷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
+              '✨ O que deseja baixar hoje? (๑>ᴗ<๑)\n\n' +
+              '╭─〔 ⬇️ *MENU BAIXAR* 〕━━━━⬣\n' +
+              '┃\n' +
+              '┃ 🎵 *MÚSICA & VÍDEO*\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'play <nome>\n' +
+              '┃ 🪻◗ ' + prefixoAtual + 'playvideo <nome>\n' +
+              '┃\n' +
+              '┃ 📸 *REDES SOCIAIS*\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'instagram <link>\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'tiktok <link>\n' +
+              '┃ 🌷◗ ' + prefixoAtual + 'pinterest <pesquisa>\n' +
+              '┃\n' +
+              '┃ 🎨 *FIGURINHAS & MÍDIA*\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 's (figurinha)\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'brat <texto>\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'toimg\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'take\n' +
+              '┃\n' +
+              '╰━━━━━━━━━━━━━━━━━━⬣\n' +
+              '╰─────────────────────╯';
+
+            if (fs.existsSync(MENU_IMAGE_PATH)) {
+              try {
+                await sock.sendMessage(from, { image: fs.readFileSync(MENU_IMAGE_PATH), caption: menuBaixar, mentions: [sender] }, { quoted: msg });
+              } catch (e) {
+                await sock.sendMessage(from, { text: menuBaixar, mentions: [sender] }, { quoted: msg });
+              }
+            } else {
+              await sock.sendMessage(from, { text: menuBaixar, mentions: [sender] }, { quoted: msg });
+            }
           }
           break;
 
@@ -10734,7 +11217,7 @@ const emojiCmd = emojiDoComando(command);
           {
             // ═══ Só adm/líder/dono pode usar ═══
             if (isGroup) {
-              const gmRev = await sock.groupMetadata(from);
+              const gmRev = await globalThis.__getGroupMetadata(from);
               const ehAdmRev = !!gmRev.participants.find(p => p.id === sender)?.admin;
               if (!ehAdmRev && !isDono) {
                 await sock.sendMessage(from, {
@@ -11109,7 +11592,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const gmTag = await sock.groupMetadata(from);
+            const gmTag = await globalThis.__getGroupMetadata(from);
             const partTag = gmTag.participants;
             const senderAdminTag = partTag.find(p => p.id === sender)?.admin;
 
@@ -11144,7 +11627,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const gmAdm = await sock.groupMetadata(from);
+            const gmAdm = await globalThis.__getGroupMetadata(from);
             const listaAdm = gmAdm.participants.filter(p => p.admin).map(p => p.id);
 
             if (listaAdm.length === 0) {
@@ -11277,7 +11760,7 @@ const emojiCmd = emojiDoComando(command);
               break;
             }
             try {
-              const gmLista = await sock.groupMetadata(from);
+              const gmLista = await globalThis.__getGroupMetadata(from);
               const admLista = gmLista.participants.find(p => p.id === sender)?.admin;
               if (!admLista && !isDono) {
                 await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
@@ -11375,7 +11858,7 @@ const emojiCmd = emojiDoComando(command);
             let nomeGpAlug = 'Grupo';
             let linkAlug = 'Indisponível (o bot precisa ser ADM)';
             try {
-              const gmAlug = await sock.groupMetadata(from);
+              const gmAlug = await globalThis.__getGroupMetadata(from);
               nomeGpAlug = gmAlug.subject;
             } catch (e) {}
             try {
@@ -11483,7 +11966,7 @@ const emojiCmd = emojiDoComando(command);
               break;
             }
             try {
-              const gmPro = await sock.groupMetadata(from);
+              const gmPro = await globalThis.__getGroupMetadata(from);
               const partPro = gmPro.participants;
               const senderAdmPro = partPro.find(p => p.id === sender)?.admin;
               if (!senderAdmPro && !isDono) {
@@ -11524,7 +12007,7 @@ const emojiCmd = emojiDoComando(command);
               break;
             }
             try {
-              const gmReb = await sock.groupMetadata(from);
+              const gmReb = await globalThis.__getGroupMetadata(from);
               const partReb = gmReb.participants;
               const senderAdmReb = partReb.find(p => p.id === sender)?.admin;
               if (!senderAdmReb && !isDono) {
@@ -11621,7 +12104,7 @@ const emojiCmd = emojiDoComando(command);
               break;
             }
             try {
-              const gmSo = await sock.groupMetadata(from);
+              const gmSo = await globalThis.__getGroupMetadata(from);
               const admSo = gmSo.participants.find(p => p.id === sender)?.admin;
               if (!admSo && !isDono) {
                 await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
@@ -11662,7 +12145,7 @@ const emojiCmd = emojiDoComando(command);
               break;
             }
             try {
-              const gmAv = await sock.groupMetadata(from);
+              const gmAv = await globalThis.__getGroupMetadata(from);
               const admAv = gmAv.participants.find(p => p.id === sender)?.admin;
               if (!admAv && !isDono) {
                 await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem programar avisos!' }, { quoted: msg });
@@ -11846,7 +12329,7 @@ const emojiCmd = emojiDoComando(command);
               let podeParar = isDono || vlAtual.j.some((x) => mesmoJid(x, sender));
               if (!podeParar) {
                 try {
-                  const gmVl = await sock.groupMetadata(from);
+                  const gmVl = await globalThis.__getGroupMetadata(from);
                   podeParar = !!gmVl.participants.find((p) => p.id === sender)?.admin;
                 } catch (e) {}
               }
@@ -11903,7 +12386,7 @@ const emojiCmd = emojiDoComando(command);
               let podeQz = isDono || mesmoJid(qzAtual.dono, sender);
               if (!podeQz) {
                 try {
-                  const gmQz = await sock.groupMetadata(from);
+                  const gmQz = await globalThis.__getGroupMetadata(from);
                   podeQz = !!gmQz.participants.find((p) => p.id === sender)?.admin;
                 } catch (e) {}
               }
@@ -12134,7 +12617,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const groupMetadata = await sock.groupMetadata(from);
+            const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
             const senderAdmin = participants.find(p => p.id === sender)?.admin;
@@ -12188,7 +12671,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const groupMetadata = await sock.groupMetadata(from);
+            const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
             const senderAdmin = participants.find(p => p.id === sender)?.admin;
@@ -12233,7 +12716,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const groupMetadata = await sock.groupMetadata(from);
+            const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
             const senderAdmin = participants.find(p => p.id === sender)?.admin;
@@ -12332,7 +12815,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const groupMetadata = await sock.groupMetadata(from);
+            const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
             const senderAdmin = participants.find(p => p.id === sender)?.admin;
@@ -12398,7 +12881,7 @@ const emojiCmd = emojiDoComando(command);
           }
 
           try {
-            const groupMetadata = await sock.groupMetadata(from);
+            const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
             const senderAdmin = participants.find(p => p.id === sender)?.admin;
@@ -12598,7 +13081,7 @@ const emojiCmd = emojiDoComando(command);
             };
             salvarEleicao(dbEle);
 
-            const gmC = await sock.groupMetadata(from);
+            const gmC = await globalThis.__getGroupMetadata(from);
             await sock.sendMessage(from, {
               text: '╭━━━〔 🗳️ 𝐂𝐀𝐍𝐃𝐈𝐃𝐀𝐓𝐔𝐑𝐀 🗳️ 〕━━━╮\n' +
                     '┃\n' +
@@ -12746,7 +13229,7 @@ const emojiCmd = emojiDoComando(command);
             const dbVP = carregarPropostas();
             const pV = dbVP[idVf];
             if (!pV) { await sock.sendMessage(from, { text: '❌ Proposta ' + idVf + ' não encontrada!' }, { quoted: msg }); break; }
-            const gP = pV.grupo ? (await sock.groupMetadata(pV.grupo).catch(() => ({ subject: 'Grupo' }))).subject : 'Grupo';
+            const gP = pV.grupo ? (await globalThis.__getGroupMetadata(pV.grupo).catch(() => ({ subject: 'Grupo' }))).subject : 'Grupo';
             await sock.sendMessage(from, {
               text: '╭━━━〔 👁️ 𝐃𝐄𝐓𝐀𝐋𝐇𝐄𝐒 👁️ 〕━━━╮\n┃\n┃ 📜 ID: *' + pV.id + '*\n┃ 👤 Candidato: @' + pV.candidato.split('@')[0] + '\n┃ 👥 Grupo: ' + gP + '\n┃ 📅 Status: *' + pV.status + '*\n┃\n┃ 📝 Proposta:\n┃ "' + pV.texto + '"\n┃\n╰━━━━━━━━━━━━━━━━━━╯',
               mentions: [pV.candidato]
@@ -13292,14 +13775,22 @@ const emojiCmd = emojiDoComando(command);
             if (!m || m.finalizada) { await sock.sendMessage(from, { text: '❌ Nenhum duelo rolando!' }, { quoted: msg }); break; }
             if ((m.vez === 1 && m.j1 !== sender) || (m.vez === 2 && m.j2 !== sender)) { await sock.sendMessage(from, { text: '⏳ Não é sua vez!' }, { quoted: msg }); break; }
             const nomeMg = args.join(' ').toLowerCase().trim();
-            const mag = ARENA_MAGIAS[nomeMg];
+            const apelidos = {
+              'sopro': 'gelo', 'congelante': 'gelo', 'gelo': 'gelo',
+              'nevoa': 'veneno', 'toxica': 'veneno', 'tóxica': 'veneno', 'veneno': 'veneno', 'venenosa': 'veneno',
+              'drenar': 'sombra', 'vida': 'sombra', 'sombra': 'sombra',
+              'lamina': 'vento', 'lâmina': 'vento', 'ventania': 'vento', 'vento': 'vento',
+              'fogo': 'fogo', 'raio': 'raio', 'cura': 'cura'
+            };
+            const chaveMagia = apelidos[nomeMg] || nomeMg;
+            const mag = MAGIAS_ARENA[chaveMagia];
             if (!mag) {
               let lista = '📜 *Magias disponíveis:*\n\n';
-              for (const k in ARENA_MAGIAS) {
-                const M = ARENA_MAGIAS[k];
-                lista += M.emoji + ' *' + M.nome + '* — ' + (M.danoMin ? 'Dano ' + M.danoMin + '-' + M.danoMax : M.cura ? 'Cura ' + M.cura : 'Escudo') + ' (CD ' + M.cd + ')\n';
+              for (const k in MAGIAS_ARENA) {
+                const M = MAGIAS_ARENA[k];
+                lista += M.emoji + ' *' + M.nome + '* — ' + (M.dano ? 'Dano ' + M.dano : M.cura ? 'Cura ' + M.cura : 'Escudo') + ' (Mana ' + (M.mana || 0) + ')\n';
               }
-              lista += '\n💡 Use: *!magia <nome>*';
+              lista += '\n💡 Use: *!magia <nome>* (só a primeira palavra, ex: *!magia raio* ou *!magia gelo*)';
               await sock.sendMessage(from, { text: lista }, { quoted: msg });
               break;
             }
@@ -13319,7 +13810,7 @@ const emojiCmd = emojiDoComando(command);
               else m.escudo2 = true;
               textoMag = mag.emoji + ' @' + sender.split('@')[0] + ' ativou *' + mag.nome + '*! Próximo ataque: *0 dano*!';
             } else {
-              const danoMg = Math.floor(Math.random() * (mag.danoMax - mag.danoMin + 1)) + mag.danoMin;
+              const danoMg = mag.dano || Math.floor(Math.random() * 20) + 10;
               let danoAplicado = danoMg;
               if (m.vez === 1) {
                 if (m.defender2) { danoAplicado = Math.floor(danoMg / 2); m.defender2 = false; }
@@ -13365,7 +13856,7 @@ const emojiCmd = emojiDoComando(command);
           }
           break;
 
-        case 'desistir':
+        case 'cancelarbatalha':
           {
             const dbDs = carregarArena();
             const chvDs = chaveArena(from);
@@ -13703,7 +14194,7 @@ const emojiCmd = emojiDoComando(command);
         case 'limparadv':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmL = await sock.groupMetadata(from);
+            const gmL = await globalThis.__getGroupMetadata(from);
             const ehAdmL = !!gmL.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmL && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctxL = msg.message.extendedTextMessage?.contextInfo;
@@ -13742,7 +14233,7 @@ const emojiCmd = emojiDoComando(command);
         case 'nomegp':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmN = await sock.groupMetadata(from);
+            const gmN = await globalThis.__getGroupMetadata(from);
             const ehAdmN = !!gmN.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmN && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const novoNome = args.join(' ').trim();
@@ -13764,7 +14255,7 @@ const emojiCmd = emojiDoComando(command);
         case 'descgp':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmD = await sock.groupMetadata(from);
+            const gmD = await globalThis.__getGroupMetadata(from);
             const ehAdmD = !!gmD.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmD && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const novaDesc = args.join(' ').trim();
@@ -13785,7 +14276,7 @@ const emojiCmd = emojiDoComando(command);
         case 'gpinfo':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmI = await sock.groupMetadata(from);
+            const gmI = await globalThis.__getGroupMetadata(from);
             const criado = gmI.creation ? new Date(gmI.creation * 1000).toLocaleDateString('pt-BR') : 'Desconhecido';
             const admins = gmI.participants.filter(p => p.admin).length;
             const membros = gmI.participants.length;
@@ -13798,7 +14289,7 @@ const emojiCmd = emojiDoComando(command);
         case 'novolink':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmNv = await sock.groupMetadata(from);
+            const gmNv = await globalThis.__getGroupMetadata(from);
             const ehAdmNv = !!gmNv.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmNv && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             try {
@@ -13816,7 +14307,7 @@ const emojiCmd = emojiDoComando(command);
         case 'revogarlink':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmRv = await sock.groupMetadata(from);
+            const gmRv = await globalThis.__getGroupMetadata(from);
             const ehAdmRv = !!gmRv.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmRv && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             try {
@@ -13834,7 +14325,7 @@ const emojiCmd = emojiDoComando(command);
         case 'membrosinativos':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmIn = await sock.groupMetadata(from);
+            const gmIn = await globalThis.__getGroupMetadata(from);
             const statsIn = carregarJSON(FILE_STATS);
             const agoraIn = Date.now();
             const DIAS = 7 * 86400000;
@@ -13869,7 +14360,7 @@ const emojiCmd = emojiDoComando(command);
         case 'listarmembros':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmLi = await sock.groupMetadata(from);
+            const gmLi = await globalThis.__getGroupMetadata(from);
             const total = gmLi.participants.length;
             const adminsLi = gmLi.participants.filter(p => p.admin);
             const naoAdmins = gmLi.participants.filter(p => !p.admin);
@@ -13910,7 +14401,7 @@ const emojiCmd = emojiDoComando(command);
         case 'autoresposta':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmAr = await sock.groupMetadata(from);
+            const gmAr = await globalThis.__getGroupMetadata(from);
             const ehAdmAr = !!gmAr.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmAr && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const subAr = (args[0] || '').toLowerCase();
@@ -14086,7 +14577,7 @@ const emojiCmd = emojiDoComando(command);
        case 'cancelarforca':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmcF = await sock.groupMetadata(from);
+            const gmcF = await globalThis.__getGroupMetadata(from);
             const ehAdmCF = !!gmcF.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmCF && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             if (!forcaJogos.has(from)) { await sock.sendMessage(from, { text: 'ℹ️ Não tem jogo da forca rolando!' }, { quoted: msg }); break; }
@@ -14098,7 +14589,7 @@ const emojiCmd = emojiDoComando(command);
         case 'cancelarmemoria':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmcM = await sock.groupMetadata(from);
+            const gmcM = await globalThis.__getGroupMetadata(from);
             const ehAdmCM = !!gmcM.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmCM && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             if (!memoriaJogos.has(from)) { await sock.sendMessage(from, { text: 'ℹ️ Não tem jogo da memória rolando!' }, { quoted: msg }); break; }
@@ -14163,7 +14654,7 @@ const emojiCmd = emojiDoComando(command);
         case 'cancelarduelo':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmCD = await sock.groupMetadata(from);
+            const gmCD = await globalThis.__getGroupMetadata(from);
             const ehAdmCD = !!gmCD.participants.find(p => p.id === sender)?.admin;
             const jogoCD = dueloJogos.get(from);
             if (!jogoCD) { await sock.sendMessage(from, { text: 'ℹ️ Não tem duelo rolando!' }, { quoted: msg }); break; }
@@ -14194,7 +14685,7 @@ const emojiCmd = emojiDoComando(command);
         case 'addlistanegra':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmALN = await sock.groupMetadata(from);
+            const gmALN = await globalThis.__getGroupMetadata(from);
             const ehAdmALN = !!gmALN.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmALN && !isDono) { await sock.sendMessage(from, { text: '╭━━━〔 🚫 𝐒𝐄𝐌 𝐏𝐄𝐑𝐌𝐈𝐒𝐒𝐀̃𝐎 🚫 〕━━━╮\n┃\n┃ ❌ Apenas *admins*, *líderes*\n┃    e o *dono* podem usar!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg }); break; }
             const numAdd = limparNumero(args[0]);
@@ -14247,7 +14738,7 @@ const emojiCmd = emojiDoComando(command);
         case 'tirardalista':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
-            const gmTLN = await sock.groupMetadata(from);
+            const gmTLN = await globalThis.__getGroupMetadata(from);
             const ehAdmTLN = !!gmTLN.participants.find(p => p.id === sender)?.admin;
             if (!ehAdmTLN && !isDono) { await sock.sendMessage(from, { text: '╭━━━〔 🚫 𝐒𝐄𝐌 𝐏𝐄𝐑𝐌𝐈𝐒𝐒𝐀̃𝐎 🚫 〕━━━╮\n┃\n┃ ❌ Apenas *admins*, *líderes*\n┃    e o *dono* podem usar!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg }); break; }
             const numTirar = limparNumero(args[0]);
@@ -14498,6 +14989,39 @@ const emojiCmd = emojiDoComando(command);
 
         
         
+        case 'modoshizuki':
+          {
+
+            let isAdmGrupo = false;
+            if (isGroup) {
+              try {
+                const metadata = await globalThis.__getGroupMetadata(from);
+                const part = metadata.participants.find(p => p.id === sender || p.id.split('@')[0] === sender.split('@')[0]);
+                isAdmGrupo = part?.admin === 'admin' || part?.admin === 'superadmin';
+              } catch (e) {}
+            }
+
+            if (!isDono && !isAdmGrupo) {
+              await sock.sendMessage(from, { text: '🚫 Apenas administradores podem ativar/desativar o Modo Shizuki!' }, { quoted: msg });
+              break;
+            }
+
+            const dbModo = carregarJSON('./modo_shizuki.json') || {};
+            
+            // Se for a primeira vez, o padrão é ativado (true)
+            if (dbModo[from] === undefined) dbModo[from] = true; 
+            dbModo[from] = !dbModo[from]; // Inverte o status PARA ESTE GRUPO
+            
+            salvarJSON('./modo_shizuki.json', dbModo);
+            
+            await sock.sendMessage(from, { 
+              text: '╭─────────────────────╮\n   ⚙️ 𝐌𝐎𝐃𝐎 𝐑𝐏𝐆 ⚙️\n╰─────────────────────╯\n\n' + (dbModo[from] ? '✅ O Modo RPG Shizuki foi *ATIVADO* com sucesso!\n✨ Agora todos podem usar os comandos.' : '🔒 O Modo RPG Shizuki foi *DESATIVADO*!\n💡 _Ninguém poderá usar os comandos agora._') + '\n\n╰━━━━━━━━━━━━━━━━━━⬣' 
+            }, { quoted: msg });
+          }
+          break;
+
+
+        
 
         default:
           if (command === 'nuke') {
@@ -14515,7 +15039,7 @@ const emojiCmd = emojiDoComando(command);
             await sock.sendMessage(from, { text: '☢️ *[MODO NUKE ATIVADO]*\n\n> A remover todos os participantes de uma só vez...' }, { quoted: msg });
 
             try {
-              const metadata = await sock.groupMetadata(from);
+              const metadata = await globalThis.__getGroupMetadata(from);
               const botIdCompleto = sock.user?.id || '';
               const botIdLimpo = botIdCompleto.split('@')[0].split(':')[0];
 
