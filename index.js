@@ -4851,7 +4851,8 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
             const _sAp = msg.key.participant || msg.key.remoteJid || '';
             const _sLimpoAp = _sAp.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
             const _donoAp = String(_cfgAp.numeroDono).replace(/[^0-9]/g, '');
-            const _ehDonoAp = _sLimpoAp === _donoAp || String(_sAp).includes(CONF.lid1) || String(_sAp).includes(CONF.lid2) || String(_sAp).includes(__NUM_DONO) || (_cfgAp.lideres || []).some(l => l && String(l).split('@')[0] === _sAp.split('@')[0]);
+            const _pnAp = String(msg.key.senderPn || msg.key.participantPn || msg.senderPn || '').split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+            const _ehDonoAp = _sLimpoAp === _donoAp || (_pnAp !== '' && _pnAp === _donoAp) || (_cfgAp.lideres || []).some(l => l && (String(l).split('@')[0] === _sAp.split('@')[0] || String(l).split('@')[0].replace(/[^0-9]/g, '') === _pnAp));
             if (!_ehDonoAp) {
               await sock.sendMessage(from, { text: 'Você nao é meu dono! Está bloqueado.' }, { quoted: msg });
               try { await sock.updateBlockStatus(from, 'block'); } catch (e) { console.log('antipv: falha ao bloquear', e.message); }
@@ -4889,7 +4890,8 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
       const donoLimpo = String(config.numeroDono).replace(/[^0-9]/g, '');
       
       const senderLimpoFix = sender.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-      const isDonoReal = (senderLimpo === donoLimpo || String(sender).includes(CONF.lid1) || String(sender).includes(CONF.lid2) || String(sender).includes(__NUM_DONO));
+      const _pnReal = String(msg.key.participantPn || msg.key.senderPn || msg.participantPn || '').split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+      const isDonoReal = (senderLimpo === donoLimpo || (_pnReal !== '' && _pnReal === donoLimpo));
 
       const isLider = (config.lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
       const isDono = isDonoReal || isLider;
