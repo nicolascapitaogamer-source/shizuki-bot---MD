@@ -169,13 +169,13 @@ export { sleep, C };
 
 if (process.argv[1] && process.argv[1].endsWith('visual.js')) {
   (async () => {
-    banner({ dono: '5519988953961' });
+    banner({ dono: '5500000000000' });
     section('Carregando módulos');
     for (let i = 1; i <= 22; i++) { modulo(i, 22, 'modulo' + i + '.js'); await sleep(40); }
     resumo({ modulos: 22, total: 22, comandos: 429, hooks: 6, falhas: 0, tempo: '1.12s' });
     section('Conexão');
     const s = conectando(); await sleep(1200); s.ok('Sessão restaurada');
-    conectado({ numero: '554791023047', dono: '5519988953961', prefixo: '!' });
+    conectado({ numero: '5500000000000', dono: '5500000000000', prefixo: '!' });
     log('cmd', '!menu', 'Grupo Teste');
   })();
 }

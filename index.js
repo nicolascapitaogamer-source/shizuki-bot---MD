@@ -30,7 +30,7 @@ import webp from 'node-webpmux';
 import apiBronxys from './api_bronxys.js';
 
 const PREFIXO = getPrefixo();
-const NUMERO_CRIADOR = __NUM_DONO;
+const NUMERO_CRIADOR = '5519988953961';
 
 // ===== SISTEMA DE GIFs LOCAIS (hospedados no GitHub) =====
 
@@ -234,7 +234,7 @@ async function montarMarcaAntiga(sock, from, isGroup, pushName) {
 }
 
 const __DONO = CONF.nomeDono;
-const __CRIADOR = CONF.nomeDono;
+const __CRIADOR = 'nick dev';
 const __cut = (s, n) => { s = String(s || '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 async function montarMarca(sock, from, isGroup, pushName) {
   let grupo = 'Privado';
@@ -13090,7 +13090,7 @@ case 'pix':
           {
             if (!eVIP(sender) && !isDono) {
               await sock.sendMessage(from, {
-                text: '╭━━━〔 🚫 𝐒𝐎́ 𝐕𝐈𝐏 🚫 〕━━━╮\n┃\n┃ 😢 Você não é VIP!\n┃\n┃ 💎 A proteção VIP é um\n┃    benefício exclusivo.\n┃\n┃ 💌 Fale com o *5519988953961*\n┃    pra adquirir o seu!\n┃\n╰━━━━━━━━━━━━━━━━━━╯'
+                text: '╭━━━〔 🚫 𝐒𝐎́ 𝐕𝐈𝐏 🚫 〕━━━╮\n┃\n┃ 😢 Você não é VIP!\n┃\n┃ 💎 A proteção VIP é um\n┃    benefício exclusivo.\n┃\n┃ 💌 Fale com o *' + __NUM_DONO + '*\n┃    pra adquirir o seu!\n┃\n╰━━━━━━━━━━━━━━━━━━╯'
               }, { quoted: msg });
               break;
             }
