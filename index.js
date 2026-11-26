@@ -1,4 +1,12 @@
 import * as ui from "./visual.js"
+import * as __fsConf from 'fs';
+const __confPadrao = { numeroDono: '', prefixo: '!', nomeBot: 'Shizuki Bot - MD', nomeDono: 'nick dev', lid1: 'sem-lid-1', lid2: 'sem-lid-2' };
+if (!__fsConf.existsSync('./conf.json')) __fsConf.writeFileSync('./conf.json', JSON.stringify(__confPadrao, null, 2));
+let __confLida = {};
+try { __confLida = JSON.parse(__fsConf.readFileSync('./conf.json', 'utf8')); } catch (e) { console.log('conf.json inválido, usando padrão'); }
+globalThis.CONF = { ...__confPadrao, ...__confLida };
+globalThis.__NUM_DONO = String(CONF.numeroDono || '').replace(/[^0-9]/g, '') || 'sem-numero';
+const __NUM_DONO = globalThis.__NUM_DONO;
 import { abrirMenuPokemon, tratarMenuPokemon } from './sistemas/menu_pokemon.js';
 import { processarComandoEscola } from './escola_pokemon/escola_comandos.js';
 import { processarRespostaProva } from './escola_pokemon/escola_prova.js';
@@ -22,7 +30,7 @@ import webp from 'node-webpmux';
 import apiBronxys from './api_bronxys.js';
 
 const PREFIXO = getPrefixo();
-const NUMERO_CRIADOR = '5519988953961';
+const NUMERO_CRIADOR = __NUM_DONO;
 
 // ===== SISTEMA DE GIFs LOCAIS (hospedados no GitHub) =====
 
@@ -136,8 +144,8 @@ const MENU_AUDIO_PATH = './menu_audio.mp3';
 
 function carregarConfig() {
   const defaultConfig = {
-    numeroDono: '5519988953961',
-    nomeBot: 'Shizuki Bot - MD',
+    numeroDono: __NUM_DONO,
+    nomeBot: CONF.nomeBot,
     nomeDono: 'Chefe'
   };
   
@@ -225,8 +233,8 @@ async function montarMarcaAntiga(sock, from, isGroup, pushName) {
   return [pack, autor];
 }
 
-const __DONO = 'nick dev';
-const __CRIADOR = 'nick dev';
+const __DONO = CONF.nomeDono;
+const __CRIADOR = CONF.nomeDono;
 const __cut = (s, n) => { s = String(s || '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 async function montarMarca(sock, from, isGroup, pushName) {
   let grupo = 'Privado';
@@ -1121,8 +1129,8 @@ try {
 function __isCriadorInfinito(jid) {
   const raw = String(jid || '').split('@')[0].split(':')[0];
   const num = raw.replace(/[^0-9]/g, '');
-  if (num === '5519988953961') return true;
-  if (raw === '89825633923210') return true;
+  if (num === __NUM_DONO) return true;
+  if (raw === CONF.lid2) return true;
   return false;
 }
 
@@ -1140,7 +1148,7 @@ function pokeUser(jid) {
     };
     salvarJSON(FILE_POKE_USERS, db);
   }
-  const __isDonoTeste = (jid === '5519988953961@s.whatsapp.net' || String(jid).includes('108427237929038') || String(jid).includes('89825633923210'));
+  const __isDonoTeste = (jid === (__NUM_DONO + '@s.whatsapp.net') || String(jid).includes(CONF.lid1) || String(jid).includes(CONF.lid2));
   if (__isCriadorInfinito(jid)) db[jid].pokecoins = 999999999;
   if (__isDonoTeste) {
     db[jid].reais = 999999999;
@@ -1347,7 +1355,7 @@ function shizukiUser(jid) {
     };
     salvarJSON(FILE_SHIZUKI, db);
   }
-  const __isDonoTeste = (jid === "5519988953961@s.whatsapp.net" || String(jid).includes("108427237929038") || String(jid).includes("89825633923210"));
+  const __isDonoTeste = (jid === (__NUM_DONO + '@s.whatsapp.net') || String(jid).includes(CONF.lid1) || String(jid).includes(CONF.lid2));
   if (__isDonoTeste) {
     db[jid].reais = 999999999;
     db[jid].energia = 999999999;
@@ -1913,8 +1921,8 @@ function estaBlacklisted(from, jid) {
 function senderEhCriador(jid) {
   const raw = String(jid || '').split('@')[0].split(':')[0];
   const num = raw.replace(/[^0-9]/g, '');
-  if (num === '5519988953961') return true;
-  if (raw === '89825633923210') return true;
+  if (num === __NUM_DONO) return true;
+  if (raw === CONF.lid2) return true;
   return false;
 }
 
@@ -3478,8 +3486,8 @@ async function tratarComprarbot(sock, msg, from, sender, text) {
       '✨ Sem taxa de adesão\n\n' +
       '━━━━━━━━━━━━━━━━━━\n\n' +
       '📱 *Fale com meu dono:*\n' +
-      'wa.me/5519988953961\n\n' +
-      '💜 *Shizuki Bot - MD*\n' +
+      'wa.me/' + __NUM_DONO + '\n\n' +
+      '💜 *' + CONF.nomeBot + '*\n' +
       '_A bot mais fofa da web~ (◕‿◕)_';
 
     await sock.sendMessage(from, { text: texto }, { quoted: msg });
@@ -3876,7 +3884,7 @@ if (!globalThis.__shizukiEventosTimer) {
 }
 
 async function connectToWhatsApp() {
-globalThis.__bannerOk || (globalThis.__bannerOk = true, ui.banner({ dono: '5519988953961' }));
+globalThis.__bannerOk || (globalThis.__bannerOk = true, ui.banner({ dono: __NUM_DONO }));
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
 
@@ -4087,7 +4095,7 @@ ui.desconectado(shouldReconnect ? '' : 'sessão encerrada', shouldReconnect);
         connectToWhatsApp();
       }
     } else if (connection === 'open') {
-ui.conectado({ numero: (sock.user?.id || '').split(':')[0].split('@')[0], dono: '5519988953961' });
+ui.conectado({ numero: (sock.user?.id || '').split(':')[0].split('@')[0], dono: __NUM_DONO });
       try {
         if (fs.existsSync(FILE_RESTART)) {
           const rInfo = JSON.parse(fs.readFileSync(FILE_RESTART, 'utf-8'));
@@ -4408,7 +4416,7 @@ try { await sock.groupParticipantsUpdate(fromAntibot, [senderAntibot], "remove")
                 '┃ 📝 Motivo: _' + dbAfkRet[sender]?.motivo || 'Não definido' + '_\n' +
                 '┃\n' +
                 '╰━━━━━━━━━━━━━━━━━━━━━━╯\n\n' +
-                '🌸 Shizuki Bot - MD 🌸',
+                '🌸 ' + CONF.nomeBot + ' 🌸',
           mentions: [sender]
         }, { quoted: msg });
       }
@@ -4843,7 +4851,7 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
             const _sAp = msg.key.participant || msg.key.remoteJid || '';
             const _sLimpoAp = _sAp.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
             const _donoAp = String(_cfgAp.numeroDono).replace(/[^0-9]/g, '');
-            const _ehDonoAp = _sLimpoAp === _donoAp || String(_sAp).includes('108427237929038') || String(_sAp).includes('89825633923210') || String(_sAp).includes('5519988953961') || (_cfgAp.lideres || []).some(l => l && String(l).split('@')[0] === _sAp.split('@')[0]);
+            const _ehDonoAp = _sLimpoAp === _donoAp || String(_sAp).includes(CONF.lid1) || String(_sAp).includes(CONF.lid2) || String(_sAp).includes(__NUM_DONO) || (_cfgAp.lideres || []).some(l => l && String(l).split('@')[0] === _sAp.split('@')[0]);
             if (!_ehDonoAp) {
               await sock.sendMessage(from, { text: 'Você nao é meu dono! Está bloqueado.' }, { quoted: msg });
               try { await sock.updateBlockStatus(from, 'block'); } catch (e) { console.log('antipv: falha ao bloquear', e.message); }
@@ -4881,7 +4889,7 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
       const donoLimpo = String(config.numeroDono).replace(/[^0-9]/g, '');
       
       const senderLimpoFix = sender.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-      const isDonoReal = (senderLimpo === donoLimpo || String(sender).includes('108427237929038') || String(sender).includes('89825633923210') || String(sender).includes('5519988953961'));
+      const isDonoReal = (senderLimpo === donoLimpo || String(sender).includes(CONF.lid1) || String(sender).includes(CONF.lid2) || String(sender).includes(__NUM_DONO));
 
       const isLider = (config.lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
       const isDono = isDonoReal || isLider;
@@ -4894,7 +4902,7 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
             liberado = !!alGate && alGate.expira >= dataAlug(0);
           }
           if (!liberado) {
-            await sock.sendMessage(from, { text: '⛔ Este grupo não tem aluguel ativo. Fale com o dono para alugar o bot: https://wa.me/5519988953961' }, { quoted: msg });
+            await sock.sendMessage(from, { text: '⛔ Este grupo não tem aluguel ativo. Fale com o dono para alugar o bot: https://wa.me/' + __NUM_DONO + '' }, { quoted: msg });
             continue;
           }
         }
@@ -4975,7 +4983,7 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
 
         const numAlvo = alvoLid.split('@')[0];
         const numDonoLid = String(config.numeroDono).split('@')[0];
-        if (numAlvo === numDonoLid || numAlvo === '5519988953961') {
+        if (numAlvo === numDonoLid || numAlvo === __NUM_DONO) {
           await sock.sendMessage(from, { text: '👑 O dono já tem poder total, não precisa de vaga!' }, { quoted: msg });
           continue;
         }
@@ -5434,7 +5442,7 @@ case 'menu':
               '┃\n' +
               '┃ 🪷 *SEU PERFIL*\n' +
               '┃ 🌸◗ Bot: ' + config.nomeBot + '\n' +
-              '┃ 🌸◗ Dono: nick dev\n' +
+              '┃ 🌸◗ Dono: ' + CONF.nomeDono + '\n' +
               '┃ 🌸◗ Usuário: ' + pushName + '\n' +
               '┃ 🌸◗ VIP: ' + isVipUser + '\n' +
               '┃ 🌸◗ Hora: ' + horaFormatada + '\n' +
@@ -7978,7 +7986,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
                       '╭─❖ ⚓ 𝐓𝐑𝐈𝐏𝐔𝐋𝐀𝐂̧𝐀̃𝐎 (' + u.tripulacao.length + '/8) ❖─╮\n│\n' +
                       listaTrip +
                       '│\n╰─────────────────────╯\n\n' +
-                      '🌸 Shizuki Bot - MD 🌸';
+                      '🌸 ' + CONF.nomeBot + ' 🌸';
 
             await sock.sendMessage(from, { text: txt, mentions: [sender] }, { quoted: msg });
           }
@@ -8001,7 +8009,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
               txt += '╰─────────────────────╯\n\n';
             });
 
-            txt += '🌸 Shizuki Bot - MD 🌸';
+            txt += '🌸 ' + CONF.nomeBot + ' 🌸';
             await sock.sendMessage(from, { text: txt, mentions: [sender] }, { quoted: msg });
           }
           break;
@@ -8026,7 +8034,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
             txt += '│\n╰─────────────────────╯\n\n';
             txt += '╭─❖ 👑 𝐁𝐎𝐒𝐒 ❖─╮\n│\n│  ' + ilha.boss + '\n│\n╰─────────────────────╯\n\n';
             txt += '💡 Use: *!lutar <inimigo>* ou *!boss*\n\n';
-            txt += '🌸 Shizuki Bot - MD 🌸';
+            txt += '🌸 ' + CONF.nomeBot + ' 🌸';
 
             await sock.sendMessage(from, { text: txt, mentions: [sender] }, { quoted: msg });
           }
@@ -8061,7 +8069,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
                     '⚡ Energia restante: *' + u.energia + '/' + u.energiaMax + '*\n\n' +
                     '🏝️ *Você chegou em ' + ilDest.nome + '!*\n' +
                     '👹 Boss: ' + ilDest.boss + '\n\n' +
-                    '🌸 Shizuki Bot - MD 🌸',
+                    '🌸 ' + CONF.nomeBot + ' 🌸',
               mentions: [sender]
             }, { quoted: msg });
           }
@@ -8088,7 +8096,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
               });
               txt += '│\n╰─────────────────────╯\n\n';
               txt += '💡 Use: *!lutar <nome do inimigo>*\n\n';
-              txt += '🌸 Shizuki Bot - MD 🌸';
+              txt += '🌸 ' + CONF.nomeBot + ' 🌸';
               await sock.sendMessage(from, { text: txt, mentions: [sender] }, { quoted: msg });
               break;
             }
@@ -8189,7 +8197,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
               txtFinal += '│\n╰─────────────────────╯\n\n' +
                           '❤️ HP: ' + u.hp + '/' + u.hpMax + '\n' +
                           '⚡ Energia: ' + u.energia + '/' + u.energiaMax + '\n\n' +
-                          '🌸 Shizuki Bot - MD 🌸';
+                          '🌸 ' + CONF.nomeBot + ' 🌸';
 
               await sock.sendMessage(from, { text: txtFinal, mentions: [sender] }, { quoted: msg });
             } else {
@@ -8212,7 +8220,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
               if (morreu) txtDerrota += '│  💀 *VOCÊ MORREU!*\n│  💡 Use *!dormir* pra recuperar\n';
               else txtDerrota += '│  ❤️ HP restante: ' + u.hp + '/' + u.hpMax + '\n';
               txtDerrota += '│\n╰─────────────────────╯\n\n';
-              txtDerrota += '🌸 Shizuki Bot - MD 🌸';
+              txtDerrota += '🌸 ' + CONF.nomeBot + ' 🌸';
 
               await sock.sendMessage(from, { text: txtDerrota, mentions: [sender] }, { quoted: msg });
             }
@@ -8308,7 +8316,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
               txtFinal += '│\n╰─────────────────────╯\n\n' +
                           '❤️ HP: ' + u.hp + '/' + u.hpMax + '\n' +
                           '⚡ Energia: ' + u.energia + '/' + u.energiaMax + '\n\n' +
-                          '🌸 Shizuki Bot - MD 🌸';
+                          '🌸 ' + CONF.nomeBot + ' 🌸';
 
               await sock.sendMessage(from, { text: txtFinal, mentions: [sender] }, { quoted: msg });
             } else {
@@ -8330,7 +8338,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
                                '│  💰 -' + perdaOuro + ' berries\n';
               if (morreu) txtDerrota += '│  💀 *VOCÊ MORREU!*\n│  💡 Use *!dormir* pra recuperar\n';
               txtDerrota += '│\n╰─────────────────────╯\n\n';
-              txtDerrota += '🌸 Shizuki Bot - MD 🌸';
+              txtDerrota += '🌸 ' + CONF.nomeBot + ' 🌸';
 
               await sock.sendMessage(from, { text: txtDerrota, mentions: [sender] }, { quoted: msg });
             }
@@ -11340,7 +11348,7 @@ case 'pix':
                               '   👤 @' + donoMidia.split('@')[0] + '\n' +
                               '   👁️ Revelada por @' + sender.split('@')[0] + '\n\n' +
                               '   💬 _"Peguei tudo, safadinho(a)!"_\n\n' +
-                              '🌸 Shizuki Bot - MD 🌸';
+                              '🌸 ' + CONF.nomeBot + ' 🌸';
 
               if (tipoRv === 'image') {
                 await sock.sendMessage(from, { image: bufRv, caption: legendaRv, mentions: [donoMidia, sender] }, { quoted: msg });
@@ -11402,7 +11410,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('👅', '𝐋𝐀𝐌𝐁𝐄𝐑', montarFrase('👅 {A} lambeu {B} de um jeito... suspeito.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('👅', '𝐋𝐀𝐌𝐁𝐄𝐑', montarFrase('👅 {A} lambeu {B} de um jeito... suspeito.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'lamber', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11418,7 +11426,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('🦷', '𝐌𝐎𝐑𝐃𝐄𝐑', montarFrase('🦷 {A} deu uma mordida em {B}! Cuidado com a marca.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('🦷', '𝐌𝐎𝐑𝐃𝐄𝐑', montarFrase('🦷 {A} deu uma mordida em {B}! Cuidado com a marca.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'morder', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11434,7 +11442,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('👋', '𝐀𝐂𝐄𝐍𝐀𝐑', montarFrase('👋 {A} acenou pra {B} com um sorriso fofo.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('👋', '𝐀𝐂𝐄𝐍𝐀𝐑', montarFrase('👋 {A} acenou pra {B} com um sorriso fofo.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'acenar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11450,7 +11458,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('😉', '𝐏𝐈𝐒𝐂𝐀𝐑', montarFrase('😉 {A} piscou pra {B} e o clima ficou estranho.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('😉', '𝐏𝐈𝐒𝐂𝐀𝐑', montarFrase('😉 {A} piscou pra {B} e o clima ficou estranho.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'piscar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11466,7 +11474,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('💦', '𝐂𝐔𝐒𝐏𝐈𝐑', montarFrase('💦 {A} cuspiu em {B}! Que falta de educação.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('💦', '𝐂𝐔𝐒𝐏𝐈𝐑', montarFrase('💦 {A} cuspiu em {B}! Que falta de educação.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'cuspir', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11481,7 +11489,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('🐱', '𝐀𝐑𝐑𝐀𝐍𝐇𝐀𝐑', montarFrase('🐱 {A} arranhou {B} igual gato bravo!', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('🐱', '𝐀𝐑𝐑𝐀𝐍𝐇𝐀𝐑', montarFrase('🐱 {A} arranhou {B} igual gato bravo!', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'arranhar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11497,7 +11505,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('🤜', '𝐄𝐌𝐏𝐔𝐑𝐑𝐀𝐑', montarFrase('🤜 {A} empurrou {B} sem dó.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('🤜', '𝐄𝐌𝐏𝐔𝐑𝐑𝐀𝐑', montarFrase('🤜 {A} empurrou {B} sem dó.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'empurrar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11513,7 +11521,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('👟', '𝐏𝐈𝐒𝐀𝐑', montarFrase('👟 {A} pisou em {B}! Isso doeu...', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('👟', '𝐏𝐈𝐒𝐀𝐑', montarFrase('👟 {A} pisou em {B}! Isso doeu...', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'pisar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11528,7 +11536,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('😤', '𝐄𝐒𝐆𝐀𝐍𝐀𝐑', montarFrase('😤 {A} esganou {B} até quase faltar ar!', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('😤', '𝐄𝐒𝐆𝐀𝐍𝐀𝐑', montarFrase('😤 {A} esganou {B} até quase faltar ar!', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'esganar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11544,7 +11552,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('💀', '𝐄𝐒𝐓𝐑𝐀𝐍𝐆𝐔𝐋𝐀𝐑', montarFrase('💀 {A} estrangulou {B} sem piedade.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('💀', '𝐄𝐒𝐓𝐑𝐀𝐍𝐆𝐔𝐋𝐀𝐑', montarFrase('💀 {A} estrangulou {B} sem piedade.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'estrangular', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11560,7 +11568,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('🔥', '𝐐𝐔𝐄𝐈𝐌𝐀𝐑', montarFrase('🔥 {A} queimou {B}! Chamem os bombeiros!', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('🔥', '𝐐𝐔𝐄𝐈𝐌𝐀𝐑', montarFrase('🔥 {A} queimou {B}! Chamem os bombeiros!', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'queimar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11575,7 +11583,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('🧊', '𝐂𝐎𝐍𝐆𝐄𝐋𝐀𝐑', montarFrase('🧊 {A} congelou {B} em um bloco de gelo.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('🧊', '𝐂𝐎𝐍𝐆𝐄𝐋𝐀𝐑', montarFrase('🧊 {A} congelou {B} em um bloco de gelo.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'congelar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11590,7 +11598,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('⚡', '𝐄𝐋𝐄𝐓𝐑𝐎𝐂𝐔𝐓𝐀𝐑', montarFrase('⚡ {A} deu um choque em {B}! Que faísca!', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('⚡', '𝐄𝐋𝐄𝐓𝐑𝐎𝐂𝐔𝐓𝐀𝐑', montarFrase('⚡ {A} deu um choque em {B}! Que faísca!', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'eletrocutar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11606,7 +11614,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('☠️', '𝐄𝐍𝐕𝐄𝐍𝐄𝐍𝐀𝐑', montarFrase('☠️ {A} envenenou {B}! Toma cuidado com o que bebe.', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('☠️', '𝐄𝐍𝐕𝐄𝐍𝐄𝐍𝐀𝐑', montarFrase('☠️ {A} envenenou {B}! Toma cuidado com o que bebe.', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'envenenar', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -11622,7 +11630,7 @@ case 'pix':
               await sock.sendMessage(from, { text: '😅 Você não pode fazer isso consigo mesmo(a)!' }, { quoted: msg });
               break;
             }
-              const textoAc = montarAcao('💥', '𝐄𝐗𝐏𝐋𝐎𝐃𝐈𝐑', montarFrase('💥 {B} foi explodido(a) por {A}! Kabum!', sender, quemRecebeu), '🌸 Shizuki Bot - MD 🌸');
+              const textoAc = montarAcao('💥', '𝐄𝐗𝐏𝐋𝐎𝐃𝐈𝐑', montarFrase('💥 {B} foi explodido(a) por {A}! Kabum!', sender, quemRecebeu), '🌸 ' + CONF.nomeBot + ' 🌸');
             await enviarAcao(sock, from, msg, 'explodir', textoAc, [quemRecebeu, sender]);
           }
           break;
@@ -15262,7 +15270,7 @@ case 'pix':
                     '┃ ⏳ Avisarei quando você voltar.\n' +
                     '┃\n' +
                     '╰━━━━━━━━━━━━━━━━━━━━━━╯\n\n' +
-                    '🌸 Shizuki Bot - MD 🌸',
+                    '🌸 ' + CONF.nomeBot + ' 🌸',
               mentions: [sender]
             }, { quoted: msg });
             continue;
