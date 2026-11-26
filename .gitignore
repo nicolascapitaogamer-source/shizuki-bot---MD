@@ -33,3 +33,5 @@ config.json*
 *.bkp*
 index.js.*
 node_modules/
+package-lock.json
+package-lock.json.bak
