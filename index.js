@@ -3930,6 +3930,26 @@ globalThis.__bannerOk || (globalThis.__bannerOk = true, ui.banner({ dono: __NUM_
         if (extraCanal.contextInfo) content = { ...content, ...extraCanal };
       }
     } catch (e) {}
+    try {
+      if (content && typeof content === 'object') {
+        const _k = typeof content.caption === 'string' ? 'caption' : (typeof content.text === 'string' ? 'text' : null);
+        if (_k && content[_k].includes('┃') && content[_k].includes('◗')) {
+          const _cv = (carregarJSON('./vip.json') || {}).cmds || [];
+          if (_cv.length) {
+            const _t = content[_k];
+            const _ehVip = _t.includes('MENU VIP');
+            const _pf = (_t.match(/◗ ([^\sA-Za-z0-9]{0,3})vipinfo/) || [])[1] || '!';
+            const _ls = _t.split('\n').filter(l => !(l.includes('┃') && _cv.some(c => new RegExp('◗ [^\\sA-Za-z0-9]{0,3}' + c + '(\\s|$|<|\\[)').test(l))));
+            if (_ehVip) {
+              let _i = -1;
+              for (let n = _ls.length - 1; n >= 0; n--) { if (_ls[n].startsWith('╰━━━━━━━━━━━━━━━━━━⬣')) { _i = n; break; } }
+              if (_i >= 0) _ls.splice(_i, 0, '┃', '┃ ⭐ *COMANDOS ADICIONADOS*', ..._cv.map(c => '┃ ⭐◗ ' + _pf + c));
+            }
+            content = { ...content, [_k]: _ls.join('\n') };
+          }
+        }
+      }
+    } catch (e) {}
     return __enviarOriginal(jid, content, options);
   };
 
@@ -4939,7 +4959,7 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
 
 
       const comandosValidos = ['trocar_dono', 'menu', 'help', 'menugame', 'game', 'menuadm', 'adm', 
-        'menuvip', 'vip', 'menudono', 'dono', 'nomebot', 'rmaudio', 'removeraudio', 
+        'addcomandovip', 'menuvip', 'vip', 'menudono', 'dono', 'nomebot', 'rmaudio', 'removeraudio', 
         'opengp', 'closegp', 'fotomenu', 'setmenu', 'fotobemvindo', 'setwelcome', 
         'fotoboasvindas', 'audiomenu', 'setaudiomenu', 'ping', 'criador', 'owner', 
         'ship', 'corno', 'gay', 'gostosa', 'gostoso', 'feio', 'bonito', 'bonita', 'rico', 'pobre', 'gado', 'safado', 'safada', 'chato', 'louco', 'louca', 'sortudo', 'sortuda', 'azarado', 'azarada', 'pau', 'bunda', 'chifre', 'inteligente', 'burro', 'burra', 'tiktok', 'ttk', 'beijo', 'beijar', 'abraço', 'abraco', 'abracar', 'abraçar', 'matar', 'kill', 
@@ -5110,6 +5130,13 @@ const emojiCmd = emojiDoComando(command);
         }
       }
       // === FIM BLOQUEIO MENUADM ===
+      try {
+        const _vipB = carregarJSON('./vip.json') || {};
+        if ((_vipB.cmds || []).includes(String(command).toLowerCase()) && !isDono) {
+          await sock.sendMessage(from, { text: '🚫 Esse comando é VIP: só dono e líder.' }, { quoted: msg });
+          continue;
+        }
+      } catch (e) { console.log('Erro vip:', e.message); }
       switch (command) {
         case 'limpar':
         case 'clearchat':
@@ -5798,6 +5825,7 @@ case 'menu':
               '┃ 🌸◗ ' + prefixoAtual + 'unblockcmdg [comando]\n' +
               '┃ 🌸◗ ' + prefixoAtual + 'addpokecoin [qtd] @pessoa\n' +
               '┃ 🌸◗ ' + prefixoAtual + 'channel [link]\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'addcomandovip <comando>\n' +
               '┃ 🌸◗ ' + prefixoAtual + 'rmchannel\n' +
               '┃ 🌸◗ ' + prefixoAtual + 'api [chave]\n' +
               '┃ 🌸◗ ' + prefixoAtual + 'nuke\n' +
@@ -7479,6 +7507,19 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
         //           MENU VIP — COMANDOS
         // ═══════════════════════════════════════════════
 
+        case 'addcomandovip': {
+          if (!isDono) { await sock.sendMessage(from, { text: '🚫 Apenas dono e líder!' }, { quoted: msg }); break; }
+          const _nCv = String(args[0] || '').toLowerCase().replace(/[^a-z0-9_]/g, '');
+          if (!_nCv) { await sock.sendMessage(from, { text: 'Use: ' + getPrefixo(from) + 'addcomandovip <nome do comando>' }, { quoted: msg }); break; }
+          if (!fs.readFileSync('./index.js', 'utf8').includes("case '" + _nCv + "'")) { await sock.sendMessage(from, { text: '❌ Esse comando não existe.' }, { quoted: msg }); break; }
+          const _vipDb = carregarJSON('./vip.json') || {};
+          _vipDb.cmds = _vipDb.cmds || [];
+          if (_vipDb.cmds.includes(_nCv)) { await sock.sendMessage(from, { text: 'ℹ️ *' + _nCv + '* já está no menu VIP.' }, { quoted: msg }); break; }
+          _vipDb.cmds.push(_nCv);
+          salvarJSON('./vip.json', _vipDb);
+          await sock.sendMessage(from, { text: '⭐ *' + _nCv + '* foi para o menu VIP (só dono e líder).' }, { quoted: msg });
+          break;
+        }
         case 'menuvip':
           {
             const prefixoAtual = getPrefixo(from);
