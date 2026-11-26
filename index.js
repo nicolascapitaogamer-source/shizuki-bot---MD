@@ -1,3 +1,4 @@
+import * as ui from "./visual.js"
 import { abrirMenuPokemon, tratarMenuPokemon } from './sistemas/menu_pokemon.js';
 import { processarComandoEscola } from './escola_pokemon/escola_comandos.js';
 import { processarRespostaProva } from './escola_pokemon/escola_prova.js';
@@ -209,7 +210,7 @@ function atualizarStreak(jid) {
   salvarJSON(FILE_STREAK, s);
 }
 
-async function montarMarca(sock, from, isGroup, pushName) {
+async function montarMarcaAntiga(sock, from, isGroup, pushName) {
   let grupo = 'Privado';
   if (isGroup) {
     try {
@@ -224,6 +225,18 @@ async function montarMarca(sock, from, isGroup, pushName) {
   return [pack, autor];
 }
 
+const __DONO = 'nick dev';
+const __CRIADOR = 'nick dev';
+const __cut = (s, n) => { s = String(s || '').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+async function montarMarca(sock, from, isGroup, pushName) {
+  let grupo = 'Privado';
+  if (isGroup) {
+    try { const gm = await globalThis.__getGroupMetadata(from); grupo = gm.subject; } catch (e) { grupo = 'Grupo'; }
+  }
+  const pack = '💜 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃';
+  const autor = '╭ 👤 ' + pushName + '\n├ 👑 Criador: ' + __CRIADOR + '\n├ 🛠 Dono: ' + __DONO + '\n╰ 👥 ' + grupo;
+  return [pack, autor];
+}
 function criarSticker(buffer, isVideo, pack, author) {
   return new Promise((resolve, reject) => {
     const id = Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -1996,7 +2009,7 @@ function contemBotNoNome(nome) {
 async function ehAdmDoGrupo(sock, from, jid) {
   try {
     const gm = await globalThis.__getGroupMetadata(from);
-    return !!gm.participants.find(p => p.id === jid)?.admin;
+    return !!getAdminFlag(gm.participants, jid);
   } catch (e) { return false; }
 }
 
@@ -3863,6 +3876,7 @@ if (!globalThis.__shizukiEventosTimer) {
 }
 
 async function connectToWhatsApp() {
+globalThis.__bannerOk || (globalThis.__bannerOk = true, ui.banner({ dono: '5519988953961' }));
   const { state, saveCreds } = await useMultiFileAuthState('auth_info');
   const { version } = await fetchLatestBaileysVersion();
 
@@ -3880,7 +3894,7 @@ async function connectToWhatsApp() {
     const cached = globalThis.__groupCache.get(jid);
     if (cached) return cached;
     try {
-      const metadata = await globalThis.__getGroupMetadata(jid);
+      const metadata = await sock.groupMetadata(jid);
       globalThis.__groupCache.set(jid, metadata);
       setTimeout(() => globalThis.__groupCache.delete(jid), 5 * 60 * 1000); // 5 min
       return metadata;
@@ -3889,6 +3903,7 @@ async function connectToWhatsApp() {
     }
   };
 
+  sock.ev.on('group-participants.update', (u) => { try { globalThis.__groupCache.delete(u.id); } catch (e) {} });
   // Escudo: impede que o bot feche por qualquer erro não tratado
   process.on('uncaughtException', (err) => {
     console.error('⚠️ Erro não tratado (ignorado):', err.message);
@@ -3911,28 +3926,9 @@ async function connectToWhatsApp() {
   };
 
   if (!sock.authState.creds.registered) {
-    console.log('\n' +
-        '╭━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n' +
-        '┃                             ┃\n' +
-        '┃    💜 𝐒𝐇𝐈𝐙𝐔𝐊𝐈 𝐁𝐎𝐓 - 𝐌𝐃 💜    ┃\n' +
-        '┃                             ┃\n' +
-        '┃    👑 Feito por: nick dev   ┃\n' +
-        '┃    ⚡ Versão: 2.0            ┃\n' +
-        '┃                             ┃\n' +
-        '╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n');
-      // BANNER BONITO
       const phoneNumber = await question('📱 Digite o seu número com DDD: ');
     const code = await sock.requestPairingCode(phoneNumber.trim());
-    console.log('\n' +
-        '╭━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n' +
-        '┃                             ┃\n' +
-        '┃  🔑 Seu código de pareamento ┃\n' +
-        '┃                             ┃\n' +
-        `┃      \x1b[32m\x1b[1m${code}\x1b[0m      ┃\n` +
-        '┃                             ┃\n' +
-        '╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n');
-      console.log('💡 Cole no WhatsApp em: Aparelhos conectados → Conectar com número\n');
-      console.log('⏳ Aguardando conexão...\n'); // BANNER BONITO
+ui.codigoPareamento(code); ui.info('Aguardando conexão...');
   }
 
   sock.ev.on('creds.update', saveCreds);
@@ -4047,7 +4043,7 @@ async function connectToWhatsApp() {
         ? lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut
         : true;
 
-      console.log('❌ [CONEXÃO] Conexão fechada. Tentando reconectar...', shouldReconnect);
+ui.desconectado(shouldReconnect ? '' : 'sessão encerrada', shouldReconnect);
       if (shouldReconnect) {
 
         // === LISTENER ANTIBOTS EXTRA ===
@@ -4091,15 +4087,7 @@ async function connectToWhatsApp() {
         connectToWhatsApp();
       }
     } else if (connection === 'open') {
-      console.log('\n' +
-        '╭━━━━━━━━━━━━━━━━━━━━━━━━━━━╮\n' +
-        '┃                             ┃\n' +
-        '┃  ✅ 𝐂𝐎𝐍𝐄𝐂𝐓𝐀𝐃𝐎 𝐂𝐎𝐌 𝐒𝐔𝐂𝐄𝐒𝐒𝐎!  ┃\n' +
-        '┃                             ┃\n' +
-        '┃  💜 Shizuki Bot - MD v2.0   ┃\n' +
-        '┃  🚀 Pronto pra ação!         ┃\n' +
-        '┃                             ┃\n' +
-        '╰━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n'); // BANNER BONITO
+ui.conectado({ numero: (sock.user?.id || '').split(':')[0].split('@')[0], dono: '5519988953961' });
       try {
         if (fs.existsSync(FILE_RESTART)) {
           const rInfo = JSON.parse(fs.readFileSync(FILE_RESTART, 'utf-8'));
@@ -4300,6 +4288,10 @@ async function connectToWhatsApp() {
     }
   });
 
+const _ehBot = (m) => { const i = (m.key && m.key.id) || ""; return i.startsWith("BAE5") || (i.startsWith("3EB0") && i.length > 20); };
+globalThis.__bangpOn = (jid) => { try { return (carregarJSON('./bangp.json') || {})[jid] === true; } catch (e) { return false; } };
+globalThis.__ehStatus = (m) => { try { const k = Object.keys(m || {}).join(',').toLowerCase(); return k.includes('groupstatus') || k.includes('statusmention') || JSON.stringify(m).includes('STATUS_MENTION'); } catch (e) { return false; } };
+const _antibotCool = new Map();
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     console.log('[MSG] Recebi mensagem, type:', type);
     if (type !== 'notify') { console.log('[MSG] Type não é notify, ignorando'); return; }
@@ -4315,13 +4307,16 @@ async function connectToWhatsApp() {
         if (senderNumero !== nossoNumero) {
           try {
             const dbAnt = carregarJSON('./antibots.json') || {};
-            if (dbAnt[fromAntibot] === true) {
+            if (dbAnt[fromAntibot] === true && !globalThis.__bangpOn(fromAntibot)) {
               const metadata = await globalThis.__getGroupMetadata(fromAntibot);
               const part = metadata.participants.find(p => p.id === senderAntibot || p.id.split('@')[0] === senderNumero);
-              if (!(part?.admin === 'admin' || part?.admin === 'superadmin')) {
-                try { await sock.sendMessage(fromAntibot, { delete: msg.key }); } catch (e) {}
-                await sock.sendMessage(fromAntibot, { text: '╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n🚨 *BOT DETECTADO E BANIDO!*\n\n👤 @' + senderNumero + ', aqui só tem espaço pra mim! 😎\n📉 Motivo: *Mensagem de outro bot*\n\n⚠️ _O grupo está protegido!_\n\n╰━━━━━━━━━━━━━━━━━━⬣', mentions: [senderAntibot] });
-                try { await sock.groupParticipantsUpdate(fromAntibot, [senderAntibot], 'remove'); } catch (e) { console.log('Erro ao banir:', e.message); }
+              if (_ehBot(msg) && !(part?.admin === 'admin' || part?.admin === 'superadmin')) {
+const _k = fromAntibot + ":" + senderNumero;
+try { await sock.sendMessage(fromAntibot, { delete: msg.key }); } catch (e) {}
+if (!_antibotCool.has(_k)) {
+_antibotCool.set(_k, 1); setTimeout(() => _antibotCool.delete(_k), 60000);
+try { await sock.groupParticipantsUpdate(fromAntibot, [senderAntibot], "remove"); await sock.sendMessage(fromAntibot, { text: "╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n🚨 *BOT DETECTADO E BANIDO!*\n\n👤 @" + senderNumero + ", aqui só tem espaço pra mim! 😎\n📉 Motivo: *Mensagem de outro bot*\n\n⚠️ _O grupo está protegido!_\n\n╰━━━━━━━━━━━━━━━━━━⬣", mentions: [senderAntibot] }); } catch (e) { console.log("Erro ao banir:", e.message); }
+}
                 continue;
               }
             }
@@ -4652,7 +4647,7 @@ async function connectToWhatsApp() {
           let podeMandar = false;
           try {
             const gmParc = await globalThis.__getGroupMetadata(from);
-            if (gmParc.participants.find(p => p.id === sender)?.admin) podeMandar = true;
+            if (getAdminFlag(gmParc.participants, sender)) podeMandar = true;
           } catch (e) {}
           const isLiderParc = (carregarConfig().lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
           if (isLiderParc || senderEhCriador(sender)) podeMandar = true;
@@ -4700,7 +4695,7 @@ async function connectToWhatsApp() {
         let ehAdmAl = false;
         try {
           const gmAl = await globalThis.__getGroupMetadata(from);
-          ehAdmAl = !!gmAl.participants.find(p => p.id === sender)?.admin;
+          ehAdmAl = !!getAdminFlag(gmAl.participants, sender);
         } catch (e) {}
         if (!ehAdmAl && !senderEhCriador(sender)) {
           try { await sock.sendMessage(from, { delete: msg.key }); } catch (e) {}
@@ -4734,7 +4729,7 @@ async function connectToWhatsApp() {
         let ehAdmFl = false;
         try {
           const gmFl = await globalThis.__getGroupMetadata(from);
-          ehAdmFl = !!gmFl.participants.find(p => p.id === sender)?.admin;
+          ehAdmFl = !!getAdminFlag(gmFl.participants, sender);
         } catch (e) {}
         if (!ehAdmFl && !senderEhCriador(sender)) {
           const qtdFl = registrarMsgFlood(from, sender);
@@ -4799,6 +4794,20 @@ async function connectToWhatsApp() {
           const texto = text || '';
           const msgAny = msg.message || {};
 
+if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', sender, '| chaves:', Object.keys(msgAny).join(','));
+          if (antiStatusAtivo(from) && globalThis.__ehStatus(msgAny) && !(carregarConfig().lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0])) {
+            const _kS = from + ':' + sender;
+            try { await sock.sendMessage(from, { delete: msg.key }); } catch (e) {}
+            if (!globalThis.__asCool) globalThis.__asCool = new Map();
+            if (!globalThis.__asCool.has(_kS)) {
+              globalThis.__asCool.set(_kS, 1); setTimeout(() => globalThis.__asCool.delete(_kS), 60000);
+              try {
+                await sock.groupParticipantsUpdate(from, [sender], 'remove');
+                await sock.sendMessage(from, { text: '╭━━━〔 📸 𝐀𝐍𝐓𝐈-𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━╮\n┃\n┃ 🚨 *Status detectado!*\n┃ 👤 @' + sender.split('@')[0] + '\n┃ 🔨 Removido do grupo.\n┃\n╰━━━━━━━━━━━━━━━━━━╯', mentions: [sender] });
+              } catch (e) { console.log('antistatus: falha ao banir', e.message); }
+            }
+            continue;
+          }
           if (antiStatusAtivo(from) && contemLinkStatus(texto)) {
             if (await antiPunir(sock, msg, from, sender, 'ANTI-STATUS! Link de status deletado.')) continue;
           }
@@ -4826,9 +4835,26 @@ async function connectToWhatsApp() {
         }
       }
 
-      if (!text.startsWith(PREFIXO)) continue;
+      // === ANTIPV ===
+      if (!from.endsWith('@g.us') && !from.endsWith('@broadcast') && !from.endsWith('@newsletter') && from !== 'status@broadcast') {
+        try {
+          if ((carregarJSON('./antipv.json') || {}).on === true) {
+            const _cfgAp = carregarConfig();
+            const _sAp = msg.key.participant || msg.key.remoteJid || '';
+            const _sLimpoAp = _sAp.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+            const _donoAp = String(_cfgAp.numeroDono).replace(/[^0-9]/g, '');
+            const _ehDonoAp = _sLimpoAp === _donoAp || String(_sAp).includes('108427237929038') || String(_sAp).includes('89825633923210') || String(_sAp).includes('5519988953961') || (_cfgAp.lideres || []).some(l => l && String(l).split('@')[0] === _sAp.split('@')[0]);
+            if (!_ehDonoAp) {
+              await sock.sendMessage(from, { text: 'Você nao é meu dono! Está bloqueado.' }, { quoted: msg });
+              try { await sock.updateBlockStatus(from, 'block'); } catch (e) { console.log('antipv: falha ao bloquear', e.message); }
+              continue;
+            }
+          }
+        } catch (e) { console.log('Erro antipv:', e.message); }
+      }
+      const _pfxUsado = getPrefixo(from); if (!text.startsWith(_pfxUsado)) continue;
 
-      const args = text.slice(PREFIXO.length).trim().split(/ +/);
+      const args = text.slice(_pfxUsado.length).trim().split(/ +/);
       const command = args.shift().toLowerCase();
 
       // ═══ CHECAGEM DE INTERVALO POR GRUPO ═══
@@ -4892,7 +4918,7 @@ async function connectToWhatsApp() {
           let senderEhAdm = false;
           try {
             const gmSoAdm = await globalThis.__getGroupMetadata(from);
-            senderEhAdm = !!gmSoAdm.participants.find(p => p.id === sender)?.admin;
+            senderEhAdm = !!getAdminFlag(gmSoAdm.participants, sender);
           } catch (e) {}
           if (!senderEhAdm) {
             await sock.sendMessage(from, { react: { text: '🛡️', key: msg.key } });
@@ -4998,7 +5024,7 @@ const emojiCmd = emojiDoComando(command);
       if (isGroup) {
         try {
           const dbAntibots = carregarJSON('./antibots.json') || {};
-          if (dbAntibots[from] === true) {
+          if (dbAntibots[from] === true && !globalThis.__bangpOn(from)) {
             const senderBot = (sender || '').split('@')[0];
             const nossoBot = (sock.user?.id || '').split('@')[0];
             const textoMsg = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '').trim();
@@ -5009,7 +5035,7 @@ const emojiCmd = emojiDoComando(command);
               const metadata = await globalThis.__getGroupMetadata(from);
               const part = metadata.participants.find(p => p.id === sender || p.id.split('@')[0] === senderBot);
               const isAdm = part?.admin === 'admin' || part?.admin === 'superadmin';
-              if (!isAdm) {
+              if (_ehBot(msg) && !isAdm) {
                 // Verifica se é um bot (nome contém bot, ou ID é de bot conhecido)
                 const push = (msg.pushName || '').toLowerCase();
                 const pareceBot = push.includes('bot') || push.includes('shizuki') || senderBot.length > 12;
@@ -5032,7 +5058,7 @@ const emojiCmd = emojiDoComando(command);
       if (isGroup && !isDono) {
         try {
           const dbAntibots = carregarJSON('./antibots.json') || {};
-          if (dbAntibots[from] === true) {
+          if (dbAntibots[from] === true && !globalThis.__bangpOn(from)) {
             const nossoNumero = (sock.user?.id || '').split('@')[0].split(':')[0];
             const senderNumero = (sender || '').split('@')[0].split(':')[0];
       
@@ -5043,7 +5069,7 @@ const emojiCmd = emojiDoComando(command);
               const isAdm = part?.admin === 'admin' || part?.admin === 'superadmin';
         
               // Se NÃO for admin do grupo, bane!
-              if (!isAdm) {
+              if (_ehBot(msg) && !isAdm) {
                 try { await sock.sendMessage(from, { delete: msg.key }); } catch (e) {}
                 await sock.sendMessage(from, { text: '╭─────────────────────╮\n   🤖 𝐀𝐍𝐓𝐈-𝐁𝐎𝐓𝐒 🤖\n╰─────────────────────╯\n\n🚨 *BOT DETECTADO E BANIDO!*\n\n👤 @' + senderNumero + ', aqui só tem espaço pra mim! 😎\n📉 Motivo: *Mensagem de outro bot*\n\n⚠️ _O grupo está protegido!_\n\n╰━━━━━━━━━━━━━━━━━━⬣', mentions: [sender] }, { quoted: msg });
                 try { await sock.groupParticipantsUpdate(from, [sender], 'remove'); } catch (e) { console.log('Erro ao banir:', e.message); }
@@ -5057,6 +5083,23 @@ const emojiCmd = emojiDoComando(command);
 
 
 
+      // === BANGP: bot parado neste grupo ===
+      if (isGroup && globalThis.__bangpOn(from) && command !== 'bangp' && command !== 'unbangp') { return; }
+      // === BLOQUEIO MENUADM (apenas admins) ===
+      const _cmdsAdmSet = new Set(['mute','limpar','clearchat','unmute','adv','rmadv','limparadv','listaadv','intervalo','historico','ban','kick','promover','rebaixar','promoverall','rebaixarall','apagar','blacklist','totag','hidetag','marcartodos','revelar','addlistanegra','tirardalista','listanegra','multiprefixo','nomegp','descgp','gpinfo','linkgp','novolink','revogarlink','regras','verregras','boasvindas','legendabv','fundosaiu','legendasaiu','fotoboasvindas','apresentar','add','soadm','topmembros','membrosinativos','listarmembros','admins','lideres','sorteio','fakechat','frase','antibots','antilink','antiflood','antistatus','antipromocao','antifake','antiporn','antipalavrao','antivideo','antiimagem','antisticker','antiemoji','autosticker','autoresposta','mododivertido','modonatal','modohalloween','rgaviso','opengp','closegp','rmopengp','gp','modoparceria','addparceria','rmparceria','listarparcerias']);
+      if (isGroup && _cmdsAdmSet.has(command) && !isDono) {
+        let _ehAdmGeral = false;
+        try {
+          const _gmGeral = await globalThis.__getGroupMetadata(from);
+          _ehAdmGeral = !!getAdminFlag(_gmGeral.participants, sender, msg.key.participantAlt);
+        } catch (e) { console.error('Erro bloqueio adm:', e.message); }
+        if (!_ehAdmGeral) {
+          console.log('BLOQUEIO ADM:', command, sender, msg.key.participantAlt);
+          await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
+          return;
+        }
+      }
+      // === FIM BLOQUEIO MENUADM ===
       switch (command) {
         case 'limpar':
         case 'clearchat':
@@ -5381,7 +5424,7 @@ case 'menu':
           {
             const { saudacao, horaFormatada } = obterSaudacaoEHora();
             const isVipUser = (typeof eVIP === 'function' && eVIP(sender)) ? 'Sim 💎' : 'Não';
-            const prefixoAtual = config.prefixo || '!';
+            const prefixoAtual = getPrefixo(from);
             
             const menuPrincipal =
               '╭─────────────────────╮\n\n' +
@@ -5413,7 +5456,7 @@ case 'menu':
               '┃ 🍃◗ ' + prefixoAtual + 'afk\n' +
               '┃ 🍃◗ ' + prefixoAtual + 'nick\n' +
               '┃ 🍃◗ ' + prefixoAtual + 'ia\n' +
-              '┃ 🍃◗ ' + prefixoAtual + 'multiprefixo\n' +
+              '┃ 🍃◗ ' + prefixoAtual + 'totalcmd\n' +
               '┃\n' +
               '╰━━━━━━━━━━━━━━━━━━⬣\n' +
               '╰─────────────────────╯';
@@ -5462,7 +5505,7 @@ case 'menu':
               break;
             }
 
-            const prefixoAtual = config.prefixo || '!';
+            const prefixoAtual = getPrefixo(from);
             const menuShizuki =
               '╭─────────────────────╮\n\n' +
               '🌷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
@@ -5565,7 +5608,7 @@ case 'menu':
 
         case 'menuadm':
           {
-            const prefixoAtual = config.prefixo || '!';
+            const prefixoAtual = getPrefixo(from);
             const menuAdm =
               '╭─────────────────────╮\n\n' +
               '🪷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
@@ -5596,6 +5639,8 @@ case 'menu':
               '┃ 🎴◗ ' + prefixoAtual + 'tirardalista <numero>\n' +
               '┃ 🎴◗ ' + prefixoAtual + 'listanegra\n' +
               '┃ 🎴◗ ' + prefixoAtual + 'multiprefixo <novo>\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'bangp\n' +
+              '┃ 🎴◗ ' + prefixoAtual + 'unbangp\n' +
               '┃\n' +
               '┃ 🎴 *CONFIGURAR*\n' +
               '┃ 🌸◗ ' + prefixoAtual + 'nomegp <nome>\n' +
@@ -5628,6 +5673,7 @@ case 'menu':
               '┃ 🔥 *ATIVAÇÕES*\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'antibots [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'antilink [on/off]\n' +
+              '┃ 🎋◗ ' + prefixoAtual + 'antipv [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'antiflood [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'antistatus [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'antipromocao [on/off]\n' +
@@ -5638,7 +5684,6 @@ case 'menu':
               '┃ 🎋◗ ' + prefixoAtual + 'antiimagem [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'antisticker [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'antiemoji [on/off]\n' +
-              '┃ 🎋◗ ' + prefixoAtual + 'autosticker [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'autoresposta [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'mododivertido [on/off]\n' +
               '┃ 🎋◗ ' + prefixoAtual + 'modonatal [on/off]\n' +
@@ -5727,7 +5772,7 @@ case 'menu':
         case 'dono':
           {
             if (!isDono) { await sock.sendMessage(from, { text: '🚫 Apenas o dono!' }, { quoted: msg }); break; }
-            const prefixoAtual = config.prefixo || '!';
+            const prefixoAtual = getPrefixo(from);
             const menuDono =
               '╭─────────────────────╮\n\n' +
               '👑 Oii @' + sender.split('@')[0] + '! Aqui é o *Menu Dono* 🌸\n' +
@@ -5745,6 +5790,7 @@ case 'menu':
               '┃ 🌸◗ ' + prefixoAtual + 'channel [link]\n' +
               '┃ 🌸◗ ' + prefixoAtual + 'rmchannel\n' +
               '┃ 🌸◗ ' + prefixoAtual + 'api [chave]\n' +
+              '┃ 🌸◗ ' + prefixoAtual + 'nuke\n' +
               '┃\n' +
               '┃ 🎋 *CONTROLE DO BOT*\n' +
               '┃ 🍃◗ ' + prefixoAtual + 'botoff\n' +
@@ -5843,7 +5889,7 @@ case 'menu':
           try {
             const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
-            const senderAdmin = participants.find(p => p.id === sender)?.admin;
+            const senderAdmin = getAdminFlag(participants, sender);
 
             if (!senderAdmin) {
               await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
@@ -5883,7 +5929,7 @@ case 'menu':
           try {
             const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
-            const senderAdmin = participants.find(p => p.id === sender)?.admin;
+            const senderAdmin = getAdminFlag(participants, sender);
 
             if (!senderAdmin) {
               await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
@@ -6453,7 +6499,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo podem ativar o spawn!' }, { quoted: msg });
               break;
@@ -6469,7 +6515,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo podem desativar!' }, { quoted: msg });
               break;
@@ -6799,7 +6845,16 @@ case 'editarmenu':
               break;
             }
 
-            const banco = SHIZUKI_DATA.perguntas;
+            const __norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            const banco = Object.assign({}, SHIZUKI_DATA.perguntas);
+            try {
+              const __ex = JSON.parse(fs.readFileSync('./perguntas_extra.json', 'utf8'));
+              for (const k in __ex) {
+                if (__norm(emprego.id) === k || __norm(emprego.nome) === k) {
+banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = embaralhar(__ex[k].map(q => ({ ...q, alternativas: embaralhar([...q.alternativas]) })));
+                }
+              }
+            } catch (eEx) { console.log('[prova] extras falhou:', eEx.message); }
             const todasPerguntas = [
               ...embaralhar(banco.faceis || []).slice(0, 2),
               ...embaralhar(banco.medias || []).slice(0, 2),
@@ -7060,7 +7115,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
               break;
@@ -7088,7 +7143,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
               break;
@@ -7114,7 +7169,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
               break;
@@ -7136,7 +7191,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
               break;
@@ -7163,7 +7218,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
               break;
@@ -7191,7 +7246,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins do grupo!' }, { quoted: msg });
               break;
@@ -7225,7 +7280,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Só admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./shizuki_eventos.json');
             db[from] = db[from] || {};
@@ -7240,7 +7295,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Só admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./shizuki_eventos.json');
             if (db[from]) db[from].ativo = false;
@@ -7416,7 +7471,7 @@ case 'editarmenu':
 
         case 'menuvip':
           {
-            const prefixoAtual = config.prefixo || '!';
+            const prefixoAtual = getPrefixo(from);
             const menuVip =
               '╭─────────────────────╮\n\n' +
               '🌷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
@@ -8290,7 +8345,7 @@ case 'editarmenu':
               break;
             }
             const gmInt = await globalThis.__getGroupMetadata(from);
-            const ehAdmInt = !!gmInt.participants.find(p => p.id === sender)?.admin;
+            const ehAdmInt = !!getAdminFlag(gmInt.participants, sender);
             if (!ehAdmInt && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins, líderes e o dono podem configurar o intervalo!' }, { quoted: msg });
               break;
@@ -8316,6 +8371,18 @@ case 'editarmenu':
           }
           break;
 
+        case 'figsom':
+        case 'figvideo':
+        case 'figaudio':
+        case 'figurinhasom':
+        case 'audiosticker':
+          {
+            const mf = await import('./figsom.js');
+            await mf.executar({ sock, from, msg });
+          }
+          break;
+
+        case 'rankburro':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             try {
@@ -8334,7 +8401,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _🤪 Burro(a) que nem uma porta! Só pode ser brincadeira..._\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8357,7 +8424,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _🧠 QI alto detectado! O cérebro funciona, hein?_\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8380,7 +8447,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _😴 Dá pra dormir ouvindo essa pessoa falar..._\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8403,7 +8470,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _😂 Comédia pura! Merece um palco._\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8426,7 +8493,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _🍀 Nasceu com a bunda virada pra lua! Só sorte..._\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8449,7 +8516,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _💀 Se cair de bunda no chão, sai com o nariz quebrado._\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8472,7 +8539,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _🤯 Esse aí fugiu do hospício e veio parar aqui!_\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8495,7 +8562,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _😈 Esse aí não presta! Tá sempre com a mente suja._\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8518,7 +8585,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _💕 Coração mole! Vive suspirando por aí._\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8541,7 +8608,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _🤯 Esse aí fugiu do hospício e veio parar aqui!_\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8564,7 +8631,7 @@ case 'editarmenu':
                 textoR += numerosR[i] + ' @' + jidR.split('@')[0] + '\n   ▓' + barraRank(pct) + '░ ' + pct + '%\n\n';
               });
               textoR += '━━━━━━━━━━━━━━━━━\n\n💬 _🐂 Tá usando chifre de enfeite? Cuidado pra não machucar._\n\n🌸 𝐒𝐡𝐢𝐳𝐮𝐤𝐢 𝐁𝐨𝐭 - 𝐌𝐃 🌸';
-              await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+              await enviarRankComGif(sock, from, command, textoR, mentionsR, msg);
             } catch (errR) { console.error('Erro rank:', errR.message); await sock.sendMessage(from, { text: '❌ Erro!' }, { quoted: msg }); }
           }
           break;
@@ -8606,8 +8673,7 @@ case 'editarmenu':
                 if (!imgBuf) throw new Error('Sem imagem');
 
                 const buffer = Buffer.from(imgBuf);
-                const pack = '✨ Shizuki VIP';
-                const autor = '👤 Feito por: ' + pushName;
+        const [pack, autor] = await montarMarca(sock, from, isGroup, pushName);
                 const stickerBuf = await criarSticker(buffer, false, pack, autor);
 
                 await sock.sendMessage(from, { sticker: stickerBuf }, { quoted: msg });
@@ -8785,7 +8851,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
 
             const db = modDB(FILE_ANTILINK);
@@ -8814,7 +8880,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
 
             const db = modDB(FILE_ANTIFLOOD);
@@ -8844,7 +8910,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
 
             const ctx = msg.message.extendedTextMessage?.contextInfo;
@@ -8886,7 +8952,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const txt = args.join(' ').trim();
             if (!txt) {
@@ -8906,7 +8972,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctxAp = msg.message.extendedTextMessage?.contextInfo;
             const marcada = ctxAp?.stanzaId;
@@ -8932,11 +8998,12 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
 
             const db = carregarJSON('./regras.json');
             const txt = args.join(' ').trim();
+            try { const __fm = await sock.groupMetadata(from); const __d = String(__fm.desc || '').trim(); if (!txt && __d) db[from] = __d; } catch (e) {}
 
             if (!txt) {
               if (db[from]) {
@@ -8962,7 +9029,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const advs = carregarJSON(FILE_ADVS);
             const doGrupo = advs[from] || {};
@@ -8986,7 +9053,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const naoAdm = gm.participants.filter(p => !p.admin).map(p => p.id);
             if (!naoAdm.length) {
@@ -9010,7 +9077,7 @@ case 'editarmenu':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const criadorGp = gm.owner || (gm.participants.find(p => p.admin === 'superadmin')?.id);
             const admins = gm.participants.filter(p => p.admin && p.id !== criadorGp).map(p => p.id);
@@ -9043,7 +9110,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, {
                 text: `╭━━━〔 🚫 𝐒𝐄𝐌 𝐏𝐄𝐑𝐌𝐈𝐒𝐒𝐀̃𝐎 〕━━━╮\n┃\n┃ 💔 Apenas *admins*, *líderes*\n┃    e o *dono* podem usar isso!\n┃\n┃ 🕊️ Peça ajuda a um deles~\n┃\n╰━━━━━━━━━━━━━━━━━━╯`
@@ -9082,7 +9149,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             const ehLider = (config.lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
             if (!ehAdm && !ehLider && !isDono) {
               await sock.sendMessage(from, {
@@ -9129,7 +9196,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             const ehLider = (config.lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
             if (!ehAdm && !ehLider && !isDono) {
               await sock.sendMessage(from, {
@@ -9167,7 +9234,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, {
                 text: `╭━━━〔 🚫 𝐒𝐄𝐌 𝐏𝐄𝐑𝐌𝐈𝐒𝐒𝐀̃𝐎 〕━━━╮\n┃\n┃ 💔 Apenas *admins* e o *dono*\n┃    podem usar isso!\n┃\n┃ 🕊️ Peça ajuda a eles~\n┃\n╰━━━━━━━━━━━━━━━━━━╯`
@@ -9207,7 +9274,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctxH = msg.message.extendedTextMessage?.contextInfo;
             const alvoH = ctxH?.mentionedJid?.[0] || ctxH?.participant;
@@ -9254,7 +9321,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctx = msg.message.extendedTextMessage?.contextInfo;
             const alvo = ctx?.mentionedJid?.[0] || ctx?.participant;
@@ -9295,7 +9362,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const stats = carregarJSON(FILE_STATS);
             const ranking = gm.participants
@@ -9320,7 +9387,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctx = msg.message.extendedTextMessage?.contextInfo;
             const alvo = ctx?.mentionedJid?.[0] || ctx?.participant;
@@ -9341,7 +9408,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const q = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
             const isImg = q?.imageMessage || msg.message.imageMessage;
@@ -9365,7 +9432,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./saidas.json');
             const txt = args.join(' ').trim();
@@ -9388,7 +9455,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const txt = args.join(' ').trim();
             if (!txt) { await sock.sendMessage(from, { text: '⚠️ Use: `!fakechat <texto>`\n\nEx: `!fakechat Oi, tudo bem?`' }, { quoted: msg }); break; }
@@ -9407,7 +9474,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const txt = args.join(' ').trim();
             if (!txt) { await sock.sendMessage(from, { text: '⚠️ Use: `!frase <texto>`' }, { quoted: msg }); break; }
@@ -9428,7 +9495,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antistatus.json');
             db[from] = db[from] || {};
@@ -9439,8 +9506,8 @@ case 'editarmenu':
             salvarJSON('./antistatus.json', db);
             await sock.sendMessage(from, {
               text: db[from].ativo
-                ? `╭━━━〔 📸 𝐀𝐍𝐓𝐈-𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━╮\n┃\n┃ ✅ *Ativado~* ✨\n┃\n┃ 📸 Links de status serão\n┃    *deletados*!\n┃\n╰━━━━━━━━━━━━━━━━━━╯`
-                : `╭━━━〔 📸 𝐀𝐍𝐓𝐈-𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━╮\n┃\n┃ 💤 *Desativado~*\n┃\n╰━━━━━━━━━━━━━━━━━━╯`
+                ? `╭━━━〔 📸 𝐀𝐍𝐓𝐈-𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━╮\n┃\n┃ ✅ *ATIVADO!*\n┃\n┃ 🚨 Quem postar status marcando\n┃ o grupo será *banido* e o\n┃ post será *apagado*.\n┃\n┃ 🛡️ Admins e líderes ficam livres.\n┃\n╰━━━━━━━━━━━━━━━━━━⬣`
+                : `╭━━━〔 📸 𝐀𝐍𝐓𝐈-𝐒𝐓𝐀𝐓𝐔𝐒 〕━━━╮\n┃\n┃ ❌ *DESATIVADO!*\n┃\n┃ 📸 Status liberados neste grupo.\n┃\n╰━━━━━━━━━━━━━━━━━━⬣`
             }, { quoted: msg });
           }
           break;
@@ -9449,7 +9516,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antipromocao.json');
             db[from] = db[from] || {};
@@ -9470,7 +9537,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antifake.json');
             db[from] = db[from] || {};
@@ -9491,7 +9558,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antiporn.json');
             db[from] = db[from] || {};
@@ -9512,7 +9579,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antipalavrao.json');
             db[from] = db[from] || {};
@@ -9533,7 +9600,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antivideo.json');
             db[from] = db[from] || {};
@@ -9554,7 +9621,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antiimagem.json');
             db[from] = db[from] || {};
@@ -9575,7 +9642,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antisticker.json');
             db[from] = db[from] || {};
@@ -9596,7 +9663,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./antiemoji.json');
             db[from] = db[from] || {};
@@ -9621,7 +9688,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./mododivertido.json');
             db[from] = db[from] || {};
@@ -9642,7 +9709,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./modonatal.json');
             db[from] = db[from] || {};
@@ -9663,7 +9730,7 @@ case 'editarmenu':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const db = carregarJSON('./modohalloween.json');
             db[from] = db[from] || {};
@@ -9684,7 +9751,7 @@ case 'editarmenu':
 // MENU BRINCADEIRAS
         case 'menubrincadeiras':
           {
-            const prefixoAtual = config.prefixo || '!';
+            const prefixoAtual = getPrefixo(from);
             const menuBrincadeiras =
               '╭─────────────────────╮\n\n' +
               '🌷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
@@ -10719,7 +10786,7 @@ case 'pix':
           {
             if (!isGroup) break;
             const gm = await globalThis.__getGroupMetadata(from);
-            const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+            const ehAdm = !!getAdminFlag(gm.participants, sender);
             if (!ehAdm && !isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg });
               break;
@@ -11123,7 +11190,7 @@ case 'pix':
 
         case 'menubaixar':
           {
-            const prefixoAtual = config.prefixo || '!';
+            const prefixoAtual = getPrefixo(from);
             const menuBaixar =
               '╭─────────────────────╮\n\n' +
               '🌷 Oii @' + sender.split('@')[0] + '! Eu sou a *Shizuki* 🌸\n' +
@@ -11144,6 +11211,7 @@ case 'pix':
               '┃ 🍭◗ ' + prefixoAtual + 'brat <texto>\n' +
               '┃ 🍭◗ ' + prefixoAtual + 'toimg\n' +
               '┃ 🍭◗ ' + prefixoAtual + 'take\n' +
+              '┃ 🍭◗ ' + prefixoAtual + 'figsom (marque um vídeo)\n' +
               '┃\n' +
               '╰━━━━━━━━━━━━━━━━━━⬣\n' +
               '╰─────────────────────╯';
@@ -11218,7 +11286,7 @@ case 'pix':
             // ═══ Só adm/líder/dono pode usar ═══
             if (isGroup) {
               const gmRev = await globalThis.__getGroupMetadata(from);
-              const ehAdmRev = !!gmRev.participants.find(p => p.id === sender)?.admin;
+              const ehAdmRev = !!getAdminFlag(gmRev.participants, sender);
               if (!ehAdmRev && !isDono) {
                 await sock.sendMessage(from, {
                   text: '╭━━━〔 🚫 𝐒𝐄𝐌 𝐏𝐄𝐑𝐌𝐈𝐒𝐒𝐀̃𝐎 🚫 〕━━━╮\n┃\n┃ 💔 Apenas *admins*, *líderes*\n┃    e o *dono* podem usar!\n┃\n╰─────────────────────────────╯'
@@ -11594,7 +11662,7 @@ case 'pix':
           try {
             const gmTag = await globalThis.__getGroupMetadata(from);
             const partTag = gmTag.participants;
-            const senderAdminTag = partTag.find(p => p.id === sender)?.admin;
+            const senderAdminTag = getAdminFlag(partTag, sender);
 
             if (!senderAdminTag) {
               await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
@@ -11761,7 +11829,7 @@ case 'pix':
             }
             try {
               const gmLista = await globalThis.__getGroupMetadata(from);
-              const admLista = gmLista.participants.find(p => p.id === sender)?.admin;
+              const admLista = getAdminFlag(gmLista.participants, sender);
               if (!admLista && !isDono) {
                 await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
                 break;
@@ -11892,7 +11960,7 @@ case 'pix':
               break;
             }
 
-            const linkOuJid = args[0];
+            const linkOuJid = args[0] || (isGroup ? from : null);
             if (!linkOuJid) {
               await sock.sendMessage(from, { text: '⚠️ Use: *!rmaluguel <link do grupo>* ou dentro do grupo para remover.' }, { quoted: msg });
               break;
@@ -11968,7 +12036,7 @@ case 'pix':
             try {
               const gmPro = await globalThis.__getGroupMetadata(from);
               const partPro = gmPro.participants;
-              const senderAdmPro = partPro.find(p => p.id === sender)?.admin;
+              const senderAdmPro = getAdminFlag(partPro, sender);
               if (!senderAdmPro && !isDono) {
                 await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem promover membros!' }, { quoted: msg });
                 break;
@@ -11979,7 +12047,7 @@ case 'pix':
                 await sock.sendMessage(from, { text: '⚠️ Marque a pessoa com @ ou responda à mensagem dela para promover.\n\nEx: `!promover @pessoa`' }, { quoted: msg });
                 break;
               }
-              if (partPro.find(p => p.id === alvoPro)?.admin) {
+              if (getAdminFlag(partPro, alvoPro)) {
                 await sock.sendMessage(from, { text: `👑 @${alvoPro.split('@')[0]} já é administrador(a) do grupo!`, mentions: [alvoPro] }, { quoted: msg });
                 break;
               }
@@ -12009,7 +12077,7 @@ case 'pix':
             try {
               const gmReb = await globalThis.__getGroupMetadata(from);
               const partReb = gmReb.participants;
-              const senderAdmReb = partReb.find(p => p.id === sender)?.admin;
+              const senderAdmReb = getAdminFlag(partReb, sender);
               if (!senderAdmReb && !isDono) {
                 await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem rebaixar membros!' }, { quoted: msg });
                 break;
@@ -12020,7 +12088,7 @@ case 'pix':
                 await sock.sendMessage(from, { text: '⚠️ Marque o adm com @ ou responda à mensagem dele para rebaixar.\n\nEx: `!rebaixar @pessoa`' }, { quoted: msg });
                 break;
               }
-              const infoReb = partReb.find(p => p.id === alvoReb);
+              const _nR = j => (j || "").split(":")[0].split("@")[0]; const infoReb = partReb.find(p => [p.id, p.lid, p.jid, p.phoneNumber].filter(Boolean).map(_nR).includes(_nR(alvoReb)));
               if (!infoReb?.admin) {
                 await sock.sendMessage(from, { text: `ℹ️ @${alvoReb.split('@')[0]} não é administrador(a) do grupo.`, mentions: [alvoReb] }, { quoted: msg });
                 break;
@@ -12029,7 +12097,7 @@ case 'pix':
                 await sock.sendMessage(from, { text: '👑 O criador do grupo não pode ser rebaixado!' }, { quoted: msg });
                 break;
               }
-              await sock.groupParticipantsUpdate(from, [alvoReb], 'demote');
+              await sock.groupParticipantsUpdate(from, [infoReb.id], 'demote');
               await sock.sendMessage(from, {
                 text: `📉 *REBAIXAMENTO!* 📉\n\n` +
                       `👤 @${alvoReb.split('@')[0]} perdeu a coroa!\n` +
@@ -12105,7 +12173,7 @@ case 'pix':
             }
             try {
               const gmSo = await globalThis.__getGroupMetadata(from);
-              const admSo = gmSo.participants.find(p => p.id === sender)?.admin;
+              const admSo = getAdminFlag(gmSo.participants, sender);
               if (!admSo && !isDono) {
                 await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
                 break;
@@ -12146,7 +12214,7 @@ case 'pix':
             }
             try {
               const gmAv = await globalThis.__getGroupMetadata(from);
-              const admAv = gmAv.participants.find(p => p.id === sender)?.admin;
+              const admAv = getAdminFlag(gmAv.participants, sender);
               if (!admAv && !isDono) {
                 await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem programar avisos!' }, { quoted: msg });
                 break;
@@ -12219,30 +12287,58 @@ case 'pix':
         case 'updatestart':
         case 'atualizar':
           {
-            if (!isDono) {
-              await sock.sendMessage(from, { text: 'Apenas o dono e os lideres podem atualizar o bot!' }, { quoted: msg });
-              break;
-            }
-            await sock.sendMessage(from, { text: 'Baixando atualizacao direto do GitHub...' }, { quoted: msg });
+            if (!isDono) { await sock.sendMessage(from, { text: '🚫 Apenas o dono e os líderes podem atualizar o bot!' }, { quoted: msg }); break; }
+            const _REPO = 'nicolascapitaogamer-source/shizuki-bot---MD', _TMP = './.update_tmp', _BAK = './.update_bak';
+            const _cx = (t) => '╭━━━〔 🔄 𝐔𝐏𝐃𝐀𝐓𝐄 〕━━━╮\n┃\n┃ ' + t + '\n┃\n╰━━━━━━━━━━━━━━━━━━⬣';
+            const _sent = await sock.sendMessage(from, { text: _cx('🔎 Procurando atualização no GitHub...') }, { quoted: msg });
+            const _ed = async (t) => { try { await sock.sendMessage(from, { text: _cx(t), edit: _sent.key }); } catch (e) { await sock.sendMessage(from, { text: _cx(t) }); } };
+            const _feitos = [];
             try {
-              const urlIndex = 'https://raw.githubusercontent.com/nicolascapitaogamer-source/shizuki-bot---MD/main/index.js';
-              const resp = await fetch(urlIndex);
-              if (!resp.ok) throw new Error('Erro ao acessar o GitHub');
-              
-              const novoCodigo = await resp.text();
-              fs.writeFileSync('./index.js', novoCodigo);
-              
-              fs.writeFileSync('./restart.json', JSON.stringify({ chat: from, texto: 'Atualizacao concluida! O bot esta online com as novidades!' }));
-              await sock.sendMessage(from, { text: 'Codigo novo baixado e validado! Atualizando agora...' }, { quoted: msg });
+              const _H = { headers: { 'User-Agent': 'shizuki-bot' } };
+              const rc = await fetch('https://api.github.com/repos/' + _REPO + '/commits/main', _H);
+              if (!rc.ok) throw new Error('GitHub respondeu ' + rc.status + ' (o repositório precisa ser público)');
+              const sha = (await rc.json()).sha;
+              let atual = null; try { atual = JSON.parse(fs.readFileSync('./update_version.json', 'utf8')).sha; } catch (e) {}
+              if (atual === sha) { await _ed('ℹ️ Nenhuma atualização encontrada.\n┃ ✅ Seu bot já está atualizado.'); break; }
+              await _ed('⬇️ Atualizando...\n┃ Baixando os arquivos...');
+              fs.rmSync(_TMP, { recursive: true, force: true }); fs.rmSync(_BAK, { recursive: true, force: true });
+              const rt = await fetch('https://api.github.com/repos/' + _REPO + '/git/trees/' + sha + '?recursive=1', _H);
+              if (!rt.ok) throw new Error('Não consegui listar os arquivos (' + rt.status + ')');
+              const tree = await rt.json();
+              if (tree.truncated) throw new Error('Repositório grande demais para listar');
+              const lista = tree.tree.filter(x => x.type === 'blob'
+                && !/^(node_modules\/|auth_|\.git|gifs\/|package-lock\.json)/.test(x.path)
+                && !x.path.includes('.bak') && !/\.tmp$/.test(x.path)
+                && (/\.(js|mjs)$/.test(x.path) || !fs.existsSync('./' + x.path)));
+              if (!lista.length) throw new Error('Nenhum arquivo para atualizar');
+              for (const f of lista) {
+                const r = await fetch('https://raw.githubusercontent.com/' + _REPO + '/' + sha + '/' + encodeURI(f.path));
+                if (!r.ok) throw new Error('Falha ao baixar ' + f.path);
+                const d = _TMP + '/' + f.path; fs.mkdirSync(d.substring(0, d.lastIndexOf('/')), { recursive: true });
+                fs.writeFileSync(d, Buffer.from(await r.arrayBuffer()));
+              }
+              for (const f of lista.filter(x => /\.(js|mjs)$/.test(x.path))) {
+                await new Promise((ok, no) => execFile('node', ['--check', _TMP + '/' + f.path], (err) => err ? no(new Error('Erro de sintaxe em ' + f.path)) : ok()));
+              }
+              for (const f of lista) {
+                const dest = './' + f.path, tinha = fs.existsSync(dest);
+                if (tinha) { const b = _BAK + '/' + f.path; fs.mkdirSync(b.substring(0, b.lastIndexOf('/')), { recursive: true }); fs.copyFileSync(dest, b); }
+                _feitos.push({ dest, bak: tinha ? _BAK + '/' + f.path : null });
+                if (dest.includes('/', 2)) fs.mkdirSync(dest.substring(0, dest.lastIndexOf('/')), { recursive: true });
+                fs.copyFileSync(_TMP + '/' + f.path, dest);
+              }
+              fs.writeFileSync('./update_version.json', JSON.stringify({ sha, data: new Date().toISOString() }));
+              fs.writeFileSync('./restart.json', JSON.stringify({ chat: from, texto: '✅ Atualização concluída! O bot está online com as novidades!' }));
+              await _ed('✅ Atualizado! (' + lista.length + ' arquivos)\n┃ 🔁 Reiniciando...');
               setTimeout(() => process.exit(42), 1500);
             } catch (e) {
-              console.error(e);
-              await sock.sendMessage(from, { text: 'Erro ao atualizar: ' + e.message }, { quoted: msg });
+              console.error('uptadestart:', e);
+              for (const x of _feitos) { try { if (x.bak) fs.copyFileSync(x.bak, x.dest); else fs.rmSync(x.dest, { force: true }); } catch (e2) {} }
+              await _ed('❌ Erro ao atualizar: ' + e.message + '\n┃ Nada foi alterado.');
+            } finally {
+              fs.rmSync(_TMP, { recursive: true, force: true });
             }
           }
-          break;
-          break;
-          break;
           break;
 
         case 'channel':
@@ -12330,7 +12426,7 @@ case 'pix':
               if (!podeParar) {
                 try {
                   const gmVl = await globalThis.__getGroupMetadata(from);
-                  podeParar = !!gmVl.participants.find((p) => p.id === sender)?.admin;
+                  podeParar = !!getAdminFlag(gmVl.participants, sender);
                 } catch (e) {}
               }
               if (!podeParar) {
@@ -12369,6 +12465,9 @@ case 'pix':
           }
           break;
 
+        case 'encerrarquiz':
+        case 'pararquiz':
+          args.unshift('parar');
         case 'quiz':
           {
             if (!isGroup) {
@@ -12387,7 +12486,7 @@ case 'pix':
               if (!podeQz) {
                 try {
                   const gmQz = await globalThis.__getGroupMetadata(from);
-                  podeQz = !!gmQz.participants.find((p) => p.id === sender)?.admin;
+                  podeQz = !!getAdminFlag(gmQz.participants, sender);
                 } catch (e) {}
               }
               if (!podeQz) {
@@ -12414,6 +12513,7 @@ case 'pix':
                     `┃ 🎯 Animais, anime, filmes,\n┃ desenhos e séries!\n┃\n` +
                     `┃ 🏁 Quem fizer *${QUIZ_META} pontos* vence!\n` +
                     `┃ ✍️ Responda *marcando a pergunta*,\n┃ sem prefixo.\n┃\n` +
+                    `┃ 🛑 Para cancelar: *${getPrefixo(from)}encerrarquiz*\n` +
                     `┃ ⏳ Prepare-se...\n` +
                     `╰━━━━━━━━━━━━━━━━━━╯`
             }, { quoted: msg });
@@ -12620,7 +12720,7 @@ case 'pix':
             const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
-            const senderAdmin = participants.find(p => p.id === sender)?.admin;
+            const senderAdmin = getAdminFlag(participants, sender);
 
             if (!senderAdmin) {
               await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem mutar membros!' }, { quoted: msg });
@@ -12635,7 +12735,7 @@ case 'pix':
               break;
             }
 
-            const targetAdmin = participants.find(p => p.id === targetUser)?.admin;
+            const targetAdmin = getAdminFlag(participants, targetUser);
             if (targetAdmin) {
               await sock.sendMessage(from, { text: '🛡️ Administradores do grupo não podem ser mutados!' }, { quoted: msg });
               break;
@@ -12674,7 +12774,7 @@ case 'pix':
             const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
-            const senderAdmin = participants.find(p => p.id === sender)?.admin;
+            const senderAdmin = getAdminFlag(participants, sender);
 
             if (!senderAdmin) {
               await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem desmutar membros!' }, { quoted: msg });
@@ -12719,7 +12819,7 @@ case 'pix':
             const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
-            const senderAdmin = participants.find(p => p.id === sender)?.admin;
+            const senderAdmin = getAdminFlag(participants, sender);
 
             if (!senderAdmin) {
               await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem aplicar advertências!' }, { quoted: msg });
@@ -12734,7 +12834,7 @@ case 'pix':
               break;
             }
 
-            const targetAdmin = participants.find(p => p.id === targetUser)?.admin;
+            const targetAdmin = getAdminFlag(participants, targetUser);
             if (targetAdmin) {
               await sock.sendMessage(from, { text: '🛡️ Administradores do grupo não podem receber advertências!' }, { quoted: msg });
               break;
@@ -12818,7 +12918,7 @@ case 'pix':
             const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
-            const senderAdmin = participants.find(p => p.id === sender)?.admin;
+            const senderAdmin = getAdminFlag(participants, sender);
 
             if (!senderAdmin) {
               await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem remover advertências!' }, { quoted: msg });
@@ -12873,7 +12973,26 @@ case 'pix':
           }
           break;
 
+
         case 'ban':
+        case 'kick':
+          {
+            if (!isGroup) { await sock.sendMessage(from, { text: '❌ Este comando só pode ser usado em grupos!' }, { quoted: msg }); break; }
+            
+            const alvo = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || msg.message?.extendedTextMessage?.contextInfo?.participant;
+            if (!alvo) { await sock.sendMessage(from, { text: '❌ Marque ou responda alguém.' }, { quoted: msg }); break; }
+
+            try {
+              await sock.groupParticipantsUpdate(from, [alvo], 'remove');
+              await sock.sendMessage(from, { text: `🚫 *Usuário removido.*\n\n> @${alvo.split('@')[0]}, você foi removido(a) do grupo. Respeite as regras!`, mentions: [alvo] });
+            } catch (err) {
+              console.error('Erro no comando !ban:', err);
+              await sock.sendMessage(from, { text: '❌ Ocorreu um erro. Certifique-se de que o bot é ADM.' }, { quoted: msg });
+            }
+          }
+          break;
+
+
         case 'kick':
           if (!isGroup) {
             await sock.sendMessage(from, { text: '❌ Este comando só pode ser usado em grupos!' }, { quoted: msg });
@@ -12884,7 +13003,7 @@ case 'pix':
             const groupMetadata = await globalThis.__getGroupMetadata(from);
             const participants = groupMetadata.participants;
 
-            const senderAdmin = participants.find(p => p.id === sender)?.admin;
+            const senderAdmin = getAdminFlag(participants, sender);
 
             if (!senderAdmin) {
               await sock.sendMessage(from, { text: '🚫 Apenas administradores do grupo podem usar este comando!' }, { quoted: msg });
@@ -14195,7 +14314,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmL = await globalThis.__getGroupMetadata(from);
-            const ehAdmL = !!gmL.participants.find(p => p.id === sender)?.admin;
+            const ehAdmL = !!getAdminFlag(gmL.participants, sender);
             if (!ehAdmL && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const ctxL = msg.message.extendedTextMessage?.contextInfo;
             const alvoL = ctxL?.mentionedJid?.[0] || ctxL?.participant;
@@ -14234,7 +14353,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmN = await globalThis.__getGroupMetadata(from);
-            const ehAdmN = !!gmN.participants.find(p => p.id === sender)?.admin;
+            const ehAdmN = !!getAdminFlag(gmN.participants, sender);
             if (!ehAdmN && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const novoNome = args.join(' ').trim();
             if (!novoNome) { await sock.sendMessage(from, { text: '⚠️ Use: *!nomegp <nome>*' }, { quoted: msg }); break; }
@@ -14256,7 +14375,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmD = await globalThis.__getGroupMetadata(from);
-            const ehAdmD = !!gmD.participants.find(p => p.id === sender)?.admin;
+            const ehAdmD = !!getAdminFlag(gmD.participants, sender);
             if (!ehAdmD && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const novaDesc = args.join(' ').trim();
             if (!novaDesc) { await sock.sendMessage(from, { text: '⚠️ Use: *!descgp <texto>*' }, { quoted: msg }); break; }
@@ -14273,6 +14392,51 @@ case 'pix':
           break;
 
 
+        case 'totalcmd': {
+          const _src = fs.readFileSync('./index.js', 'utf8');
+          const _set = new Set();
+          for (const m of _src.matchAll(/case\s+['"]([^'"]+)['"]\s*:/g)) _set.add(m[1]);
+          await sock.sendMessage(from, { text: '📊 *TOTAL DE COMANDOS*\n\n🤖 O bot tem *' + _set.size + '* comandos (contando apelidos).' }, { quoted: msg });
+          break;
+        }
+        case 'bangp':
+        case 'unbangp': {
+          if (!isGroup) { await sock.sendMessage(from, { text: '❌ Use este comando dentro de um grupo.' }, { quoted: msg }); break; }
+          let _admBg = false;
+          try {
+            const _gmBg = await globalThis.__getGroupMetadata(from);
+            _admBg = !!getAdminFlag(_gmBg.participants, sender, msg.key.participantAlt);
+          } catch (e) {}
+          if (!isDono && !_admBg) { await sock.sendMessage(from, { text: '🚫 Apenas admins podem usar este comando!' }, { quoted: msg }); break; }
+          const _dbBg = carregarJSON('./bangp.json') || {};
+          if (command === 'bangp') {
+            if (_dbBg[from] === true) { await sock.sendMessage(from, { text: 'ℹ️ O bot já está parado neste grupo. Para voltar use: ' + getPrefixo(from) + 'unbangp' }, { quoted: msg }); break; }
+            _dbBg[from] = true;
+            salvarJSON('./bangp.json', _dbBg);
+            await sock.sendMessage(from, { text: '🔇 *BOT PARADO NESTE GRUPO!*\n\nPara voltar use: ' + getPrefixo(from) + 'unbangp' }, { quoted: msg });
+          } else {
+            if (_dbBg[from] !== true) { await sock.sendMessage(from, { text: 'ℹ️ O bot não está parado neste grupo.' }, { quoted: msg }); break; }
+            delete _dbBg[from];
+            salvarJSON('./bangp.json', _dbBg);
+            await sock.sendMessage(from, { text: '🔊 *BOT VOLTOU A FUNCIONAR NESTE GRUPO!*' }, { quoted: msg });
+          }
+          break;
+        }
+        case 'antipv': {
+          if (!isDono) { await sock.sendMessage(from, { text: '🚫 Apenas o dono e os líderes podem usar este comando!' }, { quoted: msg }); break; }
+          const _opAp = (args[0] || '').toLowerCase();
+          const _dbAp = carregarJSON('./antipv.json') || {};
+          if (_opAp === 'on') {
+            _dbAp.on = true; salvarJSON('./antipv.json', _dbAp);
+            await sock.sendMessage(from, { text: '🛡️ *ANTI-PV ATIVADO!*\n\nQuem não for dono e mandar mensagem no privado será bloqueado.' }, { quoted: msg });
+          } else if (_opAp === 'off') {
+            _dbAp.on = false; salvarJSON('./antipv.json', _dbAp);
+            await sock.sendMessage(from, { text: '✅ *ANTI-PV DESATIVADO!*' }, { quoted: msg });
+          } else {
+            await sock.sendMessage(from, { text: 'ℹ️ Anti-PV: *' + (_dbAp.on ? 'ligado' : 'desligado') + '*\n\nUse: ' + getPrefixo(from) + 'antipv on/off' }, { quoted: msg });
+          }
+          break;
+        }
         case 'gpinfo':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
@@ -14290,7 +14454,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmNv = await globalThis.__getGroupMetadata(from);
-            const ehAdmNv = !!gmNv.participants.find(p => p.id === sender)?.admin;
+            const ehAdmNv = !!getAdminFlag(gmNv.participants, sender);
             if (!ehAdmNv && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             try {
               const novoLink = await sock.groupInviteCode(from);
@@ -14308,7 +14472,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmRv = await globalThis.__getGroupMetadata(from);
-            const ehAdmRv = !!gmRv.participants.find(p => p.id === sender)?.admin;
+            const ehAdmRv = !!getAdminFlag(gmRv.participants, sender);
             if (!ehAdmRv && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             try {
               await sock.groupRevokeInvite(from);
@@ -14402,7 +14566,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmAr = await globalThis.__getGroupMetadata(from);
-            const ehAdmAr = !!gmAr.participants.find(p => p.id === sender)?.admin;
+            const ehAdmAr = !!getAdminFlag(gmAr.participants, sender);
             if (!ehAdmAr && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             const subAr = (args[0] || '').toLowerCase();
             const dbAr = carregarJSON(FILE_AUTORESPOSTA);
@@ -14578,7 +14742,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmcF = await globalThis.__getGroupMetadata(from);
-            const ehAdmCF = !!gmcF.participants.find(p => p.id === sender)?.admin;
+            const ehAdmCF = !!getAdminFlag(gmcF.participants, sender);
             if (!ehAdmCF && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             if (!forcaJogos.has(from)) { await sock.sendMessage(from, { text: 'ℹ️ Não tem jogo da forca rolando!' }, { quoted: msg }); break; }
             forcaJogos.delete(from);
@@ -14590,7 +14754,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmcM = await globalThis.__getGroupMetadata(from);
-            const ehAdmCM = !!gmcM.participants.find(p => p.id === sender)?.admin;
+            const ehAdmCM = !!getAdminFlag(gmcM.participants, sender);
             if (!ehAdmCM && !isDono) { await sock.sendMessage(from, { text: '🚫 Apenas admins!' }, { quoted: msg }); break; }
             if (!memoriaJogos.has(from)) { await sock.sendMessage(from, { text: 'ℹ️ Não tem jogo da memória rolando!' }, { quoted: msg }); break; }
             memoriaJogos.delete(from);
@@ -14655,7 +14819,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmCD = await globalThis.__getGroupMetadata(from);
-            const ehAdmCD = !!gmCD.participants.find(p => p.id === sender)?.admin;
+            const ehAdmCD = !!getAdminFlag(gmCD.participants, sender);
             const jogoCD = dueloJogos.get(from);
             if (!jogoCD) { await sock.sendMessage(from, { text: 'ℹ️ Não tem duelo rolando!' }, { quoted: msg }); break; }
             const ehJogador = sender === jogoCD.j1 || sender === jogoCD.j2;
@@ -14686,7 +14850,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmALN = await globalThis.__getGroupMetadata(from);
-            const ehAdmALN = !!gmALN.participants.find(p => p.id === sender)?.admin;
+            const ehAdmALN = !!getAdminFlag(gmALN.participants, sender);
             if (!ehAdmALN && !isDono) { await sock.sendMessage(from, { text: '╭━━━〔 🚫 𝐒𝐄𝐌 𝐏𝐄𝐑𝐌𝐈𝐒𝐒𝐀̃𝐎 🚫 〕━━━╮\n┃\n┃ ❌ Apenas *admins*, *líderes*\n┃    e o *dono* podem usar!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg }); break; }
             const numAdd = limparNumero(args[0]);
             if (!numAdd || numAdd.length < 10) { await sock.sendMessage(from, { text: '╭━━━〔 ⚠️ 𝐄𝐑𝐑𝐎 ⚠️ 〕━━━╮\n┃\n┃ ❌ Informe o número!\n┃\n┃ 💡 Use: *!addlistanegra <numero>*\n┃ 📝 Ex: *!addlistanegra 5511999999999*\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg }); break; }
@@ -14739,7 +14903,7 @@ case 'pix':
           {
             if (!isGroup) { await sock.sendMessage(from, { text: '❌ Só em grupos!' }, { quoted: msg }); break; }
             const gmTLN = await globalThis.__getGroupMetadata(from);
-            const ehAdmTLN = !!gmTLN.participants.find(p => p.id === sender)?.admin;
+            const ehAdmTLN = !!getAdminFlag(gmTLN.participants, sender);
             if (!ehAdmTLN && !isDono) { await sock.sendMessage(from, { text: '╭━━━〔 🚫 𝐒𝐄𝐌 𝐏𝐄𝐑𝐌𝐈𝐒𝐒𝐀̃𝐎 🚫 〕━━━╮\n┃\n┃ ❌ Apenas *admins*, *líderes*\n┃    e o *dono* podem usar!\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg }); break; }
             const numTirar = limparNumero(args[0]);
             if (!numTirar || numTirar.length < 10) { await sock.sendMessage(from, { text: '╭━━━〔 ⚠️ 𝐄𝐑𝐑𝐎 ⚠️ 〕━━━╮\n┃\n┃ ❌ Informe o número!\n┃\n┃ 💡 Use: *!tirardalista <numero>*\n┃ 📝 Ex: *!tirardalista 5511999999999*\n┃\n╰━━━━━━━━━━━━━━━━━━╯' }, { quoted: msg }); break; }
@@ -15131,3 +15295,29 @@ case 'pix':
 
 connectToWhatsApp();
  
+
+function getAdminFlag(participants, ...ids) {
+  const n = j => (j || '').split(':')[0].split('@')[0]
+  const alvo = ids.filter(Boolean).map(n)
+  const p = (participants || []).find(p =>
+    [p.id, p.lid, p.jid, p.phoneNumber].filter(Boolean).map(n).some(x => alvo.includes(x))
+  )
+  return p?.admin
+}
+
+async function enviarRankComGif(sock, from, comando, textoR, mentionsR, msg) {
+  try {
+    const fs2 = await import('fs');
+    const pasta = './gifs/' + comando;
+    if (fs2.existsSync(pasta)) {
+      const arqs = fs2.readdirSync(pasta).filter(a => /\.(mp4|gif|webm)$/i.test(a));
+      if (arqs.length > 0) {
+        const arq = arqs[Math.floor(Math.random() * arqs.length)];
+        const video = fs2.readFileSync(pasta + '/' + arq);
+        await sock.sendMessage(from, { video, gifPlayback: true, caption: textoR, mentions: mentionsR }, { quoted: msg });
+        return;
+      }
+    }
+  } catch (e) { console.error('Erro gif rank:', e.message); }
+  await sock.sendMessage(from, { text: textoR, mentions: mentionsR }, { quoted: msg });
+}

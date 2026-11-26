@@ -32,7 +32,7 @@ export function setPrefixoGrupo(from, novo) {
 export async function multiprefixo(sock, msg, from, sender, args, isDono, isGroup) {
     if (!isGroup) return;
     const gm = await sock.groupMetadata(from);
-    const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+    const ehAdm = ehAdmGrupo(gm.participants, sender);
     if (!ehAdm && !isDono) {
         await sock.sendMessage(from, { text: '🚫 Apenas admins ou donos!' }, { quoted: msg });
         return;
@@ -55,7 +55,7 @@ export async function multiprefixo(sock, msg, from, sender, args, isDono, isGrou
 export async function setprefixo(sock, msg, from, sender, args, isDono, isGroup) {
     if (!isGroup) return;
     const gm = await sock.groupMetadata(from);
-    const ehAdm = !!gm.participants.find(p => p.id === sender)?.admin;
+    const ehAdm = ehAdmGrupo(gm.participants, sender);
     if (!ehAdm && !isDono) {
         await sock.sendMessage(from, { text: '🚫 Apenas admins ou donos!' }, { quoted: msg });
         return;
@@ -73,4 +73,12 @@ export async function setprefixo(sock, msg, from, sender, args, isDono, isGroup)
     }
     setPrefixoGrupo(from, novo);
     await sock.sendMessage(from, { text: `✅ Prefixo do grupo alterado para: *${novo}*` }, { quoted: msg });
+}
+
+function ehAdmGrupo(participants, id) {
+    const n = j => (j || '').split(':')[0].split('@')[0];
+    return (participants || []).some(p =>
+        (p.admin === 'admin' || p.admin === 'superadmin') &&
+        [p.id, p.lid, p.jid, p.phoneNumber].filter(Boolean).map(n).includes(n(id))
+    );
 }

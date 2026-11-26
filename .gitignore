@@ -8,3 +8,12 @@ index_host*.js
 index_test.js
 teste.mp4
 *.zip
+update_version.json
+.update_bak/
+.update_tmp/
+b4.js
+b4_teste.js
+b5.js
+novo.js
+check.js
+*.cjs

@@ -12,6 +12,8 @@ const designPrincipal = `╭━━━━━━━━━━━━━━━━━�
 ┃ 3️⃣ 🐾 *Meu Parceiro*
 ┃ 4️⃣ 🎒 *Mochila & Itens*
 ┃ 5️⃣ 🏆 *Ranking & Porcentagens*
+┃ 6️⃣ 👹 *Missões & Bosses*
+┃ 7️⃣ 🏫 *Atividades Escolares*
 ┃
 ┃ 🔙 *0* - Voltar ao Menu Principal
 ┃
@@ -21,11 +23,12 @@ const subEscola = `╭━━━〔 🏫 𝐄𝐒𝐂𝐎𝐋𝐀 𝐏𝐎𝐊�
 ┃
 ┃ 📖 *Bem-vindo ao campus!*
 ┃
-┃ 🎓 *!escolapokemon* - Ficha do aluno
-┃ 🧠 *!medo* - Analisar seu medo
-┃ 📝 *!prova* - Fazer prova (Nota)
-┃ ⏱️ *!intervalo* - Pausa (Eventos)
-┃ 📚 *!biblioteca* - Estudar (+ Nota)
+┃ 🎓 *!escolapokemon* ➜ Ficha do aluno
+┃ 🧠 *!medo* ➜ Analisar seu medo
+┃ 📝 *!prova* ➜ Fazer prova (Nota)
+┃ ⏱️ *!recreio* ➜ Pausa (Eventos)
+┃ 📚 *!biblioteca* ➜ Estudar (+ Nota)
+┃ 🎓 *!aulapokemon* ➜ Escolher aulas
 ┃
 ┃ 🔙 *0* - Voltar ao Menu Principal
 ┃
@@ -37,9 +40,7 @@ const subBatalhas = `╭━━━〔 ⚔️ 𝐁𝐀𝐓𝐀𝐋𝐇𝐀𝐒 & �
 ┃
 ┃ 🎯 *!capturar <nome>* - Capturar
 ┃ ⚔️ *!batalhapokemon @pessoa [pos]*
-┃    ➜ Desafiar alguém
 ┃ 🥊 *!ataque1 / !ataque2 / !ataque3*
-┃    ➜ Escolher ataque
 ┃ 🏳️ *!desistir* - Fugir da batalha
 ┃
 ┃ 🔒 *ADMs:*
@@ -54,9 +55,9 @@ const subParceiro = `╭━━━〔 🐾 𝐌𝐄𝐔 𝐏𝐀𝐑𝐂𝐄𝐈�
 ┃
 ┃ 💜 *O elo entre vocês é especial.*
 ┃
+┃ 🐾 *!parceiro* - Ver status/amizade
 ┃ 🍖 *!alimentar <nome>* - Alimentar
 ┃ 🔄 *!trocarpokebola <id>* - Definir padrão
-┃ 🐾 *!parceiro* - Ver status/amizade
 ┃
 ┃ 🔙 *0* - Voltar ao Menu Principal
 ┃
@@ -88,23 +89,62 @@ const subRanking = `╭━━━〔 🏆 𝐑𝐀𝐍𝐊𝐈𝐍𝐆 & 𝐏𝐎
 ┃
 ╰━━━━━━━━━━━━━━━━━━━━━━━╯`;
 
+const subMissoes = `╭━━━〔 👹 𝐌𝐈𝐒𝐒𝐎̃𝐄𝐒 & 𝐁𝐎𝐒𝐒𝐄𝐒 〕━━━╮
+┃
+┃ 🌋 *Enfrente os Pokémons "Fora da Lei"!*
+┃
+┃ 📜 *MISSÕES:*
+┃ 🎯 *!missao*
+┃ 📅 *!missaodiaria*
+┃
+┃ 📖 *DIÁRIO:*
+┃ 📋 *!minhamissao*
+┃ ❌ *!abandonarmissao*
+┃ 📚 *!historicomissoes*
+┃
+┃ ⚔️ *COMBATE:*
+┃ 👹 *!missao* (medo < 10%)
+┃ 🐾 *!parceiro*
+┃
+┃ 🔙 *0* - Voltar ao Menu Principal
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━╯`;
+
+const subAtividades = `╭━━━〔 🏫 𝐀𝐓𝐈𝐕𝐈𝐃𝐀𝐃𝐄𝐒 〕━━━╮
+┃
+┃ 📖 *Atividades da escola!*
+┃
+┃ 🏋️ *!treinoescolar* - Treinar parceiro
+┃ 🚌 *!excursao* - Excursão
+┃ 🎒 *!clubepokemon* - Clube Pokémon
+┃ ⛺ *!campoescolar* - Acampamento
+┃ 🏆 *!competicao* - Competição
+┃
+┃ 🔙 *0* - Voltar ao Menu Principal
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━━╯`;
+
 async function abrirMenuPokemon(sock, from, msg, sender) {
     const enviado = await sock.sendMessage(from, { text: designPrincipal }, { quoted: msg });
-    menuState.set(sender, { secao: 'principal', msgId: enviado.key.id });
+    menuState.set(getNumeroLimpo(sender), { secao: 'principal', msgId: enviado.key.id });
+}
+
+function getNumeroLimpo(id) {
+  return String(id || '').split('@')[0];
 }
 
 async function tratarMenuPokemon(sock, msg, from, sender, text, stanzaId) {
-    if (!menuState.has(sender)) return false;
-    const estado = menuState.get(sender);
+    if (!menuState.has(getNumeroLimpo(sender))) return false;
+    const estado = menuState.get(getNumeroLimpo(sender));
     
     if (stanzaId !== estado.msgId) return false;
 
     const t = text.trim();
-    if (!['0','1','2','3','4','5'].includes(t)) return false;
+    if (!['0','1','2','3','4','5','6','7'].includes(t)) return false;
 
     if (t === '0') {
         const enviado = await sock.sendMessage(from, { text: designPrincipal }, { quoted: msg });
-        menuState.set(sender, { secao: 'principal', msgId: enviado.key.id });
+        menuState.set(getNumeroLimpo(sender), { secao: 'principal', msgId: enviado.key.id });
         return true;
     }
 
@@ -115,18 +155,20 @@ async function tratarMenuPokemon(sock, msg, from, sender, text, stanzaId) {
         if (t === '3') { novoMenu = subParceiro; novaSecao = 'parceiro'; }
         if (t === '4') { novoMenu = subMochila; novaSecao = 'mochila'; }
         if (t === '5') { novoMenu = subRanking; novaSecao = 'ranking'; }
+        if (t === '6') { novoMenu = subMissoes; novaSecao = 'missoes'; }
+        if (t === '7') { novoMenu = subAtividades; novaSecao = 'atividades'; }
 
         if (novoMenu) {
             const enviado = await sock.sendMessage(from, { text: novoMenu }, { quoted: msg });
-            menuState.set(sender, { secao: novaSecao, msgId: enviado.key.id });
+            menuState.set(getNumeroLimpo(sender), { secao: novaSecao, msgId: enviado.key.id });
             return true;
         }
     } else {
         const enviado = await sock.sendMessage(from, { text: designPrincipal }, { quoted: msg });
-        menuState.set(sender, { secao: 'principal', msgId: enviado.key.id });
+        menuState.set(getNumeroLimpo(sender), { secao: 'principal', msgId: enviado.key.id });
         return true;
     }
     return false;
 }
 
-module.exports = { abrirMenuPokemon, tratarMenuPokemon };
+export { abrirMenuPokemon, tratarMenuPokemon };

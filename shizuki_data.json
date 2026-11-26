@@ -94,174 +94,861 @@
   "perguntas": {
     "lixeiro": [
       {
-        "p": "Qual é o dia da coleta de lixo comum?",
+        "p": "Qual é a capital do Brasil?",
         "r": [
-          "segunda",
-          "terça",
-          "quarta"
+          "Brasília"
+        ],
+        "alternativas": [
+          "São Paulo",
+          "Rio",
+          "Brasília",
+          "Salvador"
         ]
       },
       {
-        "p": "O que significa a cor azul da lixeira?",
+        "p": "Quanto é 2+2?",
         "r": [
-          "papel",
-          "plastico"
+          "4"
+        ],
+        "alternativas": [
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      },
+      {
+        "p": "Qual é a cor do céu?",
+        "r": [
+          "Azul"
+        ],
+        "alternativas": [
+          "Amarelo",
+          "Verde",
+          "Azul",
+          "Vermelho"
+        ]
+      },
+      {
+        "p": "O que é um computador?",
+        "r": [
+          "Máquina"
+        ],
+        "alternativas": [
+          "Planta",
+          "Comida",
+          "Máquina",
+          "Animal"
+        ]
+      },
+      {
+        "p": "Qual é o mês do Natal?",
+        "r": [
+          "Dezembro"
+        ],
+        "alternativas": [
+          "Outubro",
+          "Dezembro",
+          "Junho",
+          "Janeiro"
+        ]
+      },
+      {
+        "p": "Quantos dias tem uma semana?",
+        "r": [
+          "7"
+        ],
+        "alternativas": [
+          "6",
+          "7",
+          "8",
+          "5"
+        ]
+      },
+      {
+        "p": "Qual é o animal que mia?",
+        "r": [
+          "Gato"
+        ],
+        "alternativas": [
+          "Galo",
+          "Gato",
+          "Cachorro",
+          "Vaca"
         ]
       }
     ],
     "entregador": [
       {
-        "p": "Qual o prazo máximo de entrega para produtos perecíveis?",
+        "p": "Qual é a capital do Brasil?",
         "r": [
-          "24 horas",
-          "1 dia"
+          "Brasília"
+        ],
+        "alternativas": [
+          "São Paulo",
+          "Brasília",
+          "Salvador",
+          "Rio"
         ]
       },
       {
-        "p": "O que fazer se o cliente não estiver em casa?",
+        "p": "Quanto é 2+2?",
         "r": [
-          "retornar",
-          "ligar"
+          "4"
+        ],
+        "alternativas": [
+          "3",
+          "4",
+          "6",
+          "5"
+        ]
+      },
+      {
+        "p": "Qual é a cor do céu?",
+        "r": [
+          "Azul"
+        ],
+        "alternativas": [
+          "Verde",
+          "Amarelo",
+          "Azul",
+          "Vermelho"
+        ]
+      },
+      {
+        "p": "O que é um computador?",
+        "r": [
+          "Máquina"
+        ],
+        "alternativas": [
+          "Máquina",
+          "Planta",
+          "Comida",
+          "Animal"
+        ]
+      },
+      {
+        "p": "Qual é o mês do Natal?",
+        "r": [
+          "Dezembro"
+        ],
+        "alternativas": [
+          "Janeiro",
+          "Dezembro",
+          "Outubro",
+          "Junho"
+        ]
+      },
+      {
+        "p": "Quantos dias tem uma semana?",
+        "r": [
+          "7"
+        ],
+        "alternativas": [
+          "7",
+          "8",
+          "5",
+          "6"
+        ]
+      },
+      {
+        "p": "Qual é o animal que mia?",
+        "r": [
+          "Gato"
+        ],
+        "alternativas": [
+          "Gato",
+          "Vaca",
+          "Galo",
+          "Cachorro"
         ]
       }
     ],
     "programador": [
       {
-        "p": "O que significa a sigla HTML?",
+        "p": "O que significa HTML?",
         "r": [
-          "hypertext markup language"
+          "Hypertext Markup Language"
+        ],
+        "alternativas": [
+          "High Tech Language",
+          "Hypertext Markup Language",
+          "Hyperlink",
+          "Home Tool"
         ]
       },
       {
-        "p": "Qual linguagem é usada para estilizar páginas web?",
+        "p": "Qual linguagem é usada para estilizar?",
         "r": [
-          "css"
+          "CSS"
+        ],
+        "alternativas": [
+          "CSS",
+          "JS",
+          "PHP",
+          "HTML"
         ]
       },
       {
-        "p": "Qual o comando git para salvar as alterações no repositório local?",
+        "p": "O que é um loop?",
         "r": [
-          "git commit"
+          "Repetição"
+        ],
+        "alternativas": [
+          "Variável",
+          "Condição",
+          "Função",
+          "Repetição"
+        ]
+      },
+      {
+        "p": "Qual dessas é uma linguagem de programação?",
+        "r": [
+          "Python"
+        ],
+        "alternativas": [
+          "Python",
+          "HTML",
+          "XML",
+          "CSS"
+        ]
+      },
+      {
+        "p": "O que faz o comando git push?",
+        "r": [
+          "Envia código"
+        ],
+        "alternativas": [
+          "Deleta código",
+          "Envia código",
+          "Cria pasta",
+          "Baixa código"
+        ]
+      },
+      {
+        "p": "O que é um bug?",
+        "r": [
+          "Erro no código"
+        ],
+        "alternativas": [
+          "Erro no código",
+          "Um vírus",
+          "Uma função",
+          "Um recurso"
+        ]
+      },
+      {
+        "p": "O que é front-end?",
+        "r": [
+          "Parte visual"
+        ],
+        "alternativas": [
+          "Rede",
+          "Banco de dados",
+          "Parte visual",
+          "Servidor"
         ]
       }
     ],
     "vendedor": [
       {
-        "p": "Qual a melhor forma de contornar a objeção de preço do cliente?",
+        "p": "Qual é a capital do Brasil?",
         "r": [
-          "mostrar valor",
-          "beneficios"
+          "Brasília"
+        ],
+        "alternativas": [
+          "Brasília",
+          "São Paulo",
+          "Salvador",
+          "Rio"
         ]
       },
       {
-        "p": "O que é um lead qualificado?",
+        "p": "Quanto é 2+2?",
         "r": [
-          "cliente com interesse",
-          "potencial comprador"
+          "4"
+        ],
+        "alternativas": [
+          "3",
+          "4",
+          "5",
+          "6"
+        ]
+      },
+      {
+        "p": "Qual é a cor do céu?",
+        "r": [
+          "Azul"
+        ],
+        "alternativas": [
+          "Azul",
+          "Verde",
+          "Vermelho",
+          "Amarelo"
+        ]
+      },
+      {
+        "p": "O que é um computador?",
+        "r": [
+          "Máquina"
+        ],
+        "alternativas": [
+          "Planta",
+          "Animal",
+          "Máquina",
+          "Comida"
+        ]
+      },
+      {
+        "p": "Qual é o mês do Natal?",
+        "r": [
+          "Dezembro"
+        ],
+        "alternativas": [
+          "Dezembro",
+          "Janeiro",
+          "Outubro",
+          "Junho"
+        ]
+      },
+      {
+        "p": "Quantos dias tem uma semana?",
+        "r": [
+          "7"
+        ],
+        "alternativas": [
+          "5",
+          "7",
+          "6",
+          "8"
+        ]
+      },
+      {
+        "p": "Qual é o animal que mia?",
+        "r": [
+          "Gato"
+        ],
+        "alternativas": [
+          "Gato",
+          "Cachorro",
+          "Vaca",
+          "Galo"
         ]
       }
     ],
     "medico": [
       {
-        "p": "Qual é o osso mais longo do corpo humano?",
+        "p": "Qual órgão bombeia o sangue?",
         "r": [
-          "femur"
+          "Coração"
+        ],
+        "alternativas": [
+          "Coração",
+          "Rim",
+          "Pulmão",
+          "Fígado"
         ]
       },
       {
-        "p": "Qual a dose inicial recomendada de adrenalina em parada cardíaca?",
+        "p": "Qual é o osso mais longo do corpo?",
         "r": [
-          "1 mg",
-          "1mg"
+          "Fêmur"
+        ],
+        "alternativas": [
+          "Rádio",
+          "Úmero",
+          "Tíbia",
+          "Fêmur"
         ]
       },
       {
-        "p": "Qual o exame padrão ouro para diagnóstico de apendicite?",
+        "p": "Quantos dentes tem um adulto?",
         "r": [
-          "tomografia",
-          "ultrassom"
+          "32"
+        ],
+        "alternativas": [
+          "30",
+          "36",
+          "28",
+          "32"
+        ]
+      },
+      {
+        "p": "Qual vitamina o sol produz?",
+        "r": [
+          "Vitamina D"
+        ],
+        "alternativas": [
+          "Vitamina E",
+          "Vitamina A",
+          "Vitamina C",
+          "Vitamina D"
+        ]
+      },
+      {
+        "p": "O que é pressão alta?",
+        "r": [
+          "Hipertensão"
+        ],
+        "alternativas": [
+          "Hipertensão",
+          "Hipotensão",
+          "Diabetes",
+          "Anemia"
+        ]
+      },
+      {
+        "p": "Qual exame mede os batimentos?",
+        "r": [
+          "Eletrocardiograma"
+        ],
+        "alternativas": [
+          "Ultrassom",
+          "Tomografia",
+          "Raio-X",
+          "Eletrocardiograma"
+        ]
+      },
+      {
+        "p": "Qual profissional cuida da pele?",
+        "r": [
+          "Dermatologista"
+        ],
+        "alternativas": [
+          "Cardiologista",
+          "Pediatra",
+          "Dermatologista",
+          "Oftalmologista"
         ]
       }
     ],
     "engenheiro": [
       {
-        "p": "Qual a fórmula da Segunda Lei de Newton?",
+        "p": "Qual é a capital do Brasil?",
         "r": [
-          "f = m.a",
-          "f=ma",
-          "forca igual massa vezes aceleracao"
+          "Brasília"
+        ],
+        "alternativas": [
+          "São Paulo",
+          "Brasília",
+          "Rio",
+          "Salvador"
         ]
       },
       {
-        "p": "Qual a resistência característica do concreto C25?",
+        "p": "Quanto é 2+2?",
         "r": [
-          "25 mpa",
-          "25mpa"
+          "4"
+        ],
+        "alternativas": [
+          "6",
+          "4",
+          "5",
+          "3"
         ]
       },
       {
-        "p": "O que é o fator de segurança em projetos estruturais?",
+        "p": "Qual é a cor do céu?",
         "r": [
-          "margem de erro",
-          "seguranca"
+          "Azul"
+        ],
+        "alternativas": [
+          "Verde",
+          "Amarelo",
+          "Azul",
+          "Vermelho"
+        ]
+      },
+      {
+        "p": "O que é um computador?",
+        "r": [
+          "Máquina"
+        ],
+        "alternativas": [
+          "Planta",
+          "Animal",
+          "Comida",
+          "Máquina"
+        ]
+      },
+      {
+        "p": "Qual é o mês do Natal?",
+        "r": [
+          "Dezembro"
+        ],
+        "alternativas": [
+          "Janeiro",
+          "Junho",
+          "Dezembro",
+          "Outubro"
+        ]
+      },
+      {
+        "p": "Quantos dias tem uma semana?",
+        "r": [
+          "7"
+        ],
+        "alternativas": [
+          "6",
+          "8",
+          "5",
+          "7"
+        ]
+      },
+      {
+        "p": "Qual é o animal que mia?",
+        "r": [
+          "Gato"
+        ],
+        "alternativas": [
+          "Gato",
+          "Cachorro",
+          "Vaca",
+          "Galo"
         ]
       }
     ],
     "advogado": [
       {
-        "p": "Qual o prazo para contestar uma ação judicial no processo civil?",
+        "p": "Qual é a capital do Brasil?",
         "r": [
-          "15 dias"
+          "Brasília"
+        ],
+        "alternativas": [
+          "Salvador",
+          "São Paulo",
+          "Brasília",
+          "Rio"
         ]
       },
       {
-        "p": "O que significa o princípio da ampla defesa?",
+        "p": "Quanto é 2+2?",
         "r": [
-          "direito de defesa"
+          "4"
+        ],
+        "alternativas": [
+          "6",
+          "4",
+          "3",
+          "5"
         ]
       },
       {
-        "p": "Qual é o tribunal máximo do poder judiciário brasileiro?",
+        "p": "Qual é a cor do céu?",
         "r": [
-          "stf"
+          "Azul"
+        ],
+        "alternativas": [
+          "Verde",
+          "Vermelho",
+          "Amarelo",
+          "Azul"
+        ]
+      },
+      {
+        "p": "O que é um computador?",
+        "r": [
+          "Máquina"
+        ],
+        "alternativas": [
+          "Comida",
+          "Animal",
+          "Máquina",
+          "Planta"
+        ]
+      },
+      {
+        "p": "Qual é o mês do Natal?",
+        "r": [
+          "Dezembro"
+        ],
+        "alternativas": [
+          "Janeiro",
+          "Dezembro",
+          "Junho",
+          "Outubro"
+        ]
+      },
+      {
+        "p": "Quantos dias tem uma semana?",
+        "r": [
+          "7"
+        ],
+        "alternativas": [
+          "6",
+          "5",
+          "8",
+          "7"
+        ]
+      },
+      {
+        "p": "Qual é o animal que mia?",
+        "r": [
+          "Gato"
+        ],
+        "alternativas": [
+          "Cachorro",
+          "Vaca",
+          "Gato",
+          "Galo"
         ]
       }
     ],
     "ceo": [
       {
-        "p": "Qual é a principal função de um CEO em uma empresa de capital aberto?",
+        "p": "Qual é a principal função de um CEO?",
         "r": [
-          "gerar valor",
-          "valor aos acionistas"
+          "Tomar decisões estratégicas"
+        ],
+        "alternativas": [
+          "Cuidar do RH",
+          "Tomar decisões estratégicas",
+          "Vender produtos",
+          "Programar sistemas"
         ]
       },
       {
-        "p": "O que é um EBITDA?",
+        "p": "O que significa a sigla CEO?",
         "r": [
-          "lucro antes de juros",
-          "lajida"
+          "Chief Executive Officer"
+        ],
+        "alternativas": [
+          "Chief Executive Officer",
+          "Central Executive Organ",
+          "Company Executive Owner",
+          "Chief Energy Officer"
         ]
       },
       {
-        "p": "Qual a melhor estratégia para uma fusão e aquisição de sucesso?",
+        "p": "Qual dessas é uma habilidade essencial para um CEO?",
         "r": [
-          "due diligence",
-          "analise de risco"
+          "Liderança"
+        ],
+        "alternativas": [
+          "Culinária",
+          "Liderança",
+          "Jardinagem",
+          "Pintura"
+        ]
+      },
+      {
+        "p": "O que é um 'Plano de Negócios'?",
+        "r": [
+          "Documento com estratégias da empresa"
+        ],
+        "alternativas": [
+          "Um tipo de imposto",
+          "Documento com estratégias da empresa",
+          "Uma lei trabalhista",
+          "Um software de vendas"
+        ]
+      },
+      {
+        "p": "O que significa ROI?",
+        "r": [
+          "Retorno sobre Investimento"
+        ],
+        "alternativas": [
+          "Renda Operacional Interna",
+          "Retorno sobre Investimento",
+          "Registro de Operações",
+          "Relatório de Obras"
+        ]
+      },
+      {
+        "p": "Qual é o principal objetivo de uma empresa?",
+        "r": [
+          "Gerar lucro e valor"
+        ],
+        "alternativas": [
+          "Gerar lucro e valor",
+          "Apenas pagar impostos",
+          "Contratar funcionários",
+          "Comprar computadores"
+        ]
+      },
+      {
+        "p": "O que é 'Gestão de Pessoas'?",
+        "r": [
+          "Administrar equipes e talentos"
+        ],
+        "alternativas": [
+          "Administrar equipes e talentos",
+          "Controlar o estoque",
+          "Gerenciar redes sociais",
+          "Organizar eventos"
         ]
       }
     ],
     "juiz": [
       {
-        "p": "Qual o princípio constitucional que garante a imparcialidade do juiz?",
+        "p": "Qual é a capital do Brasil?",
         "r": [
-          "imparcialidade"
+          "Brasília"
+        ],
+        "alternativas": [
+          "São Paulo",
+          "Salvador",
+          "Brasília",
+          "Rio"
         ]
       },
       {
-        "p": "O que é a coisa julgada?",
+        "p": "Quanto é 2+2?",
         "r": [
-          "decisão final",
-          "nao pode recorrer"
+          "4"
+        ],
+        "alternativas": [
+          "3",
+          "4",
+          "6",
+          "5"
+        ]
+      },
+      {
+        "p": "Qual é a cor do céu?",
+        "r": [
+          "Azul"
+        ],
+        "alternativas": [
+          "Azul",
+          "Vermelho",
+          "Amarelo",
+          "Verde"
+        ]
+      },
+      {
+        "p": "O que é um computador?",
+        "r": [
+          "Máquina"
+        ],
+        "alternativas": [
+          "Animal",
+          "Comida",
+          "Máquina",
+          "Planta"
+        ]
+      },
+      {
+        "p": "Qual é o mês do Natal?",
+        "r": [
+          "Dezembro"
+        ],
+        "alternativas": [
+          "Dezembro",
+          "Outubro",
+          "Janeiro",
+          "Junho"
+        ]
+      },
+      {
+        "p": "Quantos dias tem uma semana?",
+        "r": [
+          "7"
+        ],
+        "alternativas": [
+          "6",
+          "5",
+          "7",
+          "8"
+        ]
+      },
+      {
+        "p": "Qual é o animal que mia?",
+        "r": [
+          "Gato"
+        ],
+        "alternativas": [
+          "Gato",
+          "Cachorro",
+          "Vaca",
+          "Galo"
+        ]
+      }
+    ],
+    "veterinario": [
+      {
+        "p": "Qual é o animal conhecido como o melhor amigo do homem?",
+        "r": [
+          "Cachorro"
+        ],
+        "alternativas": [
+          "Pássaro",
+          "Gato",
+          "Cachorro",
+          "Peixe"
+        ]
+      },
+      {
+        "p": "Qual vacina é essencial para cães e gatos?",
+        "r": [
+          "Antirrábica"
+        ],
+        "alternativas": [
+          "Antitérmica",
+          "Antirrábica",
+          "Vitamina C",
+          "Antibiótica"
+        ]
+      },
+      {
+        "p": "O que um veterinário faz?",
+        "r": [
+          "Cuida da saúde dos animais"
+        ],
+        "alternativas": [
+          "Programa computadores",
+          "Constrói casas",
+          "Cuida de plantas",
+          "Cuida da saúde dos animais"
+        ]
+      },
+      {
+        "p": "Qual desses é um animal doméstico?",
+        "r": [
+          "Gato"
+        ],
+        "alternativas": [
+          "Tigre",
+          "Elefante",
+          "Leão",
+          "Gato"
+        ]
+      },
+      {
+        "p": "Qual exame é comum em animais?",
+        "r": [
+          "Hemograma"
+        ],
+        "alternativas": [
+          "Ressonância magnética",
+          "Endoscopia",
+          "Biópsia",
+          "Hemograma"
+        ]
+      },
+      {
+        "p": "O que é a raiva?",
+        "r": [
+          "Uma doença viral"
+        ],
+        "alternativas": [
+          "Uma doença viral",
+          "Um remédio",
+          "Uma vacina",
+          "Um tipo de ração"
+        ]
+      },
+      {
+        "p": "Qual animal é um réptil?",
+        "r": [
+          "Jacaré"
+        ],
+        "alternativas": [
+          "Sapo",
+          "Morcego",
+          "Jacaré",
+          "Golfinho"
         ]
       }
     ]

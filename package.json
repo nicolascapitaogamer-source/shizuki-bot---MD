@@ -5,15 +5,21 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node start.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "@hapi/boom": "^10.0.1",
-    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
     "aki-api": "^7.0.1",
     "akinator-api": "^1.0.1",
+    "lidsync": "^5.0.4",
     "pino": "^9.0.0",
     "qrcode-terminal": "^0.12.0",
     "sharp": "^0.35.5"
+  },
+  "allowScripts": {
+    "@whiskeysockets/baileys@7.0.0-rc14": true,
+    "node_extra_ca_certs_mozilla_bundle@1.0.7": true,
+    "protobufjs@7.6.6": true
   }
 }
