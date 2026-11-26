@@ -7574,7 +7574,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
           break;
         case 'darvip':
           {
-            if (!isDonoReal) {
+            if (!isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas o dono pode dar VIP!' }, { quoted: msg });
               break;
             }
@@ -7601,7 +7601,7 @@ banco.faceis = []; banco.medias = []; banco.dificeis = []; banco[emprego.id] = e
 
         case 'rmvip':
           {
-            if (!isDonoReal) {
+            if (!isDono) {
               await sock.sendMessage(from, { text: '🚫 Apenas o dono pode remover VIP!' }, { quoted: msg });
               break;
             }
