@@ -5132,8 +5132,8 @@ const emojiCmd = emojiDoComando(command);
       // === FIM BLOQUEIO MENUADM ===
       try {
         const _vipB = carregarJSON('./vip.json') || {};
-        if ((_vipB.cmds || []).includes(String(command).toLowerCase()) && !isDono) {
-          await sock.sendMessage(from, { text: '🚫 Esse comando é VIP: só dono e líder.' }, { quoted: msg });
+        if ((_vipB.cmds || []).includes(String(command).toLowerCase()) && !isDono && !isLider && !(typeof eVIP === 'function' && eVIP(sender))) {
+          await sock.sendMessage(from, { text: '🚫 Esse comando é VIP: só para VIPs.' }, { quoted: msg });
           continue;
         }
       } catch (e) { console.log('Erro vip:', e.message); }
