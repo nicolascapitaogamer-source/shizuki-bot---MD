@@ -5142,9 +5142,25 @@ const emojiCmd = emojiDoComando(command);
       const __cmdArq = (globalThis.__comandos || {})[String(command).toLowerCase()];
       if (__cmdArq) {
         try {
-          await __cmdArq.executar({ sock, from, msg, sender, isGroup, isDono, isDonoReal, isLider, command, args, pushName, config, utils: { vipDB, salvarVipDB } });
+          const __c = { sock, from, msg, sender, isGroup, isDono, isDonoReal, isLider, command, args, pushName, config };
+          try { __c.CONF = CONF; } catch (_) {}
+          try { __c.FRUTAS = FRUTAS; } catch (_) {}
+          try { __c.HAKIS = HAKIS; } catch (_) {}
+          try { __c.ILHAS = ILHAS; } catch (_) {}
+          try { __c.ITENS_LOJA = ITENS_LOJA; } catch (_) {}
+          try { __c.RACAS = RACAS; } catch (_) {}
+          try { __c.TRIPULANTES = TRIPULANTES; } catch (_) {}
+          try { __c.acharIlha = acharIlha; } catch (_) {}
+          try { __c.barraProgresso = barraProgresso; } catch (_) {}
+          try { __c.fmtNum = fmtNum; } catch (_) {}
+          try { __c.pirataUser = pirataUser; } catch (_) {}
+          try { __c.salvarPirata = salvarPirata; } catch (_) {}
+          try { __c.tituloNivel = tituloNivel; } catch (_) {}
+          try { __c.xpProximoNivel = xpProximoNivel; } catch (_) {}
+          __c.utils = { ARENA_COOLDOWN, ARMADURAS_ARENA, CANTADAS_ORIGINAIS, CASSINO_GIROS_GRATIS, CASSINO_JANELA, CASSINO_MAX, CASSINO_MIN, CONSELHOS, FACCAO_MAX_MEMBROS, FACCAO_MAX_POR_GRUPO, FILE_ADVS, FILE_ALUGUEIS, FILE_ANTIFLOOD, FILE_ANTILINK, FILE_AUTORESPOSTA, FILE_AVISOS, FILE_BLACKLIST, FILE_BLOCK, FILE_BOTSTATE, FILE_INTERVALO, FILE_JOGOS, FILE_MUTES, FILE_RESTART, FILE_SCHEDULES, FILE_SHIZUKI, FILE_STATS, FILE_STREAK, FORCA_PALAVRAS, FRASE_ABRACO, FRASE_BEIJO, FRASE_MATAR, MAGIAS_ARENA, MEMORIA_EMOJIS, MENU_AUDIO_PATH, MENU_IMAGE_PATH, NUMERO_CRIADOR, POKE_DATA, QUIZ_META, RANKS_CONFIG, RESPOSTAS_AUTO, ROLETA_DESTINOS, SHIZUKI_DATA, SORTE_DIA, WELCOME_IMAGE_PATH, __NUM_DONO, __getNumLimpo, __isCriadorInfinito, abrirMenuPokemon, acharCosmetico, acharEmprego, acharPokebola, ajustarFelicidade, ajustarSaldo, apelidoDe, apiBronxys, badgeVip, baladaAtiva, barraRank, bvLegenda, calcularDano, calcularDanoArena, calcularSalario, canonicoCmd, carregarArena, carregarBoasVindas, carregarConfig, carregarConvites, carregarEleicao, carregarFaccoes, carregarGuerras, carregarJSON, carregarLeis, carregarListaNegra, carregarPresidente, carregarPropostas, carregarSaidas, chamarGroq, chanceAzar, chaveArena, chaveBatalha, checarCooldown, criarBrat, criarPokemonInstancia, criarSticker, criarStickerTk, dataAlug, dataBR, desgastarVeiculo, diasRestantesVip, downloadContentFromMessage, dueloJogos, eVIP, ehAdmDoGrupoP, embaralhar, emojiRaridade, enviarAcao, enviarPerguntaShizuki, enviarPorcentagem, enviarRankComGif, escolherPokebola, esperar, esperarPing, execFile, faccaoDoUsuario, forcaJogos, formatarDataBR, formatarPrecoCurto, formatarReais, fs, ganharXp, gerarIdFaccao, getAdminFlag, getPrefixo, girarSlot, grupoTemAluguelAtivo, limparNumero, listarFaccoesDoGrupo, memoriaJogos, mesmoJid, modDB, montarAcao, montarFrase, montarMarca, multiprefixo, nicksAtivos, nicksList, nivelCassino, nomeExibicao, normTxt, normalizeMessageContent, numDe, obterSaudacaoEHora, podeFazerProva, pokeBatalhaDB, pokeSpawnDB, pokeUser, provasAtivas, proximoIdLei, proximoIdProposta, quizJogos, quizProxima, rankingShizuki, rotuloNivel, saldoCassino, salvarArena, salvarArmadura, salvarBoasVindas, salvarConfig, salvarConvites, salvarEleicao, salvarFaccoes, salvarGuerras, salvarJSON, salvarLeis, salvarListaNegra, salvarModDB, salvarPokeBatalha, salvarPokeSpawn, salvarPokeUser, salvarPresidente, salvarPropostas, salvarSaidas, salvarShizuki, salvarVipDB, setprefixo, shizukiUser, sortear, sortearFrase, sortearPokemon, spritePokemon, stickerParaPng, tentarCapturaMelhorada, textoListaEmpregos, textoMenuCassino, textoPingFinal, textoPingProgresso, textoPorcentagem, textoShizukiCity, velhaJogos, velhaTexto, verificarArmadura, vipDB };
+          await __cmdArq.executar(__c);
+          continue;
         } catch (e) { console.log('Erro comando', command, e.message); }
-        continue;
       }
       switch (command) {
         case 'limpar':
