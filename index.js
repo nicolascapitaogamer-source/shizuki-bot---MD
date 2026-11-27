@@ -4299,9 +4299,11 @@ ui.conectado({ numero: (sock.user?.id || '').split(':')[0].split('@')[0], dono: 
           modeloBv = modeloBv.replace(/\{user\}/g, '@' + num.split('@')[0]);
           const mensagemBoasVindas = modeloBv;
 
-          if (fs.existsSync(WELCOME_IMAGE_PATH)) {
+          const _fotoGp = './welcome_gp/' + id.replace(/[^a-zA-Z0-9]/g, '_') + '.jpg';
+          const _fotoBv = fs.existsSync(_fotoGp) ? _fotoGp : WELCOME_IMAGE_PATH;
+          if (fs.existsSync(_fotoBv)) {
             await sock.sendMessage(id, {
-              image: fs.readFileSync(WELCOME_IMAGE_PATH),
+              image: fs.readFileSync(_fotoBv),
               caption: mensagemBoasVindas,
               mentions: [num]
             });
