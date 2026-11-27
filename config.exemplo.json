@@ -1,0 +1,14 @@
+{
+  "numeroDono": "",
+  "nomeBot": "",
+  "nomeDono": "",
+  "canal": {
+    "id": "",
+    "nome": "",
+    "link": ""
+  },
+  "modoAluguel": false,
+  "apiKey": "",
+  "groqKey": "",
+  "lideres": []
+}
