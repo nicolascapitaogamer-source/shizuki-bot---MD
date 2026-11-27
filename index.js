@@ -11,6 +11,8 @@ import { abrirMenuPokemon, tratarMenuPokemon } from './sistemas/menu_pokemon.js'
 import { processarComandoEscola } from './escola_pokemon/escola_comandos.js';
 import { processarRespostaProva } from './escola_pokemon/escola_prova.js';
 import { enviarMenuPrincipal } from './menus/menu_principal.js';
+import { carregarComandos } from './carregador.js';
+globalThis.__comandos = await carregarComandos('./comandos');
 import { getPrefixo, multiprefixo, setprefixo } from './prefixo.js';
 import { 
   makeWASocket, 
@@ -5137,6 +5139,13 @@ const emojiCmd = emojiDoComando(command);
           continue;
         }
       } catch (e) { console.log('Erro vip:', e.message); }
+      const __cmdArq = (globalThis.__comandos || {})[String(command).toLowerCase()];
+      if (__cmdArq) {
+        try {
+          await __cmdArq.executar({ sock, from, msg, sender, isGroup, isDono, isDonoReal, isLider, command, args, pushName, config, utils: { vipDB, salvarVipDB } });
+        } catch (e) { console.log('Erro comando', command, e.message); }
+        continue;
+      }
       switch (command) {
         case 'limpar':
         case 'clearchat':
