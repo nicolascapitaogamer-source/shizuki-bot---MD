@@ -4934,7 +4934,6 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
 
       const senderLimpo = sender.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
       const isDonoReal = _candidatosDono.some(n => mesmoNumero(n, donoLimpo));
-      console.log('[DEBUG DONO]', { sender, senderLimpo, candidatos: _candidatosDono, donoLimpo, numeroDonoConfig: config.numeroDono, isDonoReal });
 
       const isLider = (config.lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
       const isDono = isDonoReal || isLider;
