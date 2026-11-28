@@ -22,5 +22,8 @@
     "@whiskeysockets/baileys@7.0.0-rc14": true,
     "node_extra_ca_certs_mozilla_bundle@1.0.7": true,
     "protobufjs@7.6.6": true
+  },
+  "overrides": {
+    "libsignal": "6.0.0"
   }
 }
