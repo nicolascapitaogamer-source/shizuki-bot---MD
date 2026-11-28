@@ -3539,6 +3539,24 @@ function limparNumero(num) {
   return String(num || '').replace(/[^0-9]/g, '');
 }
 
+function normalizarNumeroBR(num) {
+  let n = String(num || '').replace(/[^0-9]/g, '');
+  if (n.startsWith('55') && n.length === 13) {
+    const ddd = n.slice(2, 4);
+    const resto = n.slice(4);
+    if (resto.length === 9 && resto[0] === '9') {
+      return '55' + ddd + resto.slice(1);
+    }
+  }
+  return n;
+}
+
+function mesmoNumero(a, b) {
+  const na = normalizarNumeroBR(a);
+  const nb = normalizarNumeroBR(b);
+  return na !== '' && nb !== '' && na === nb;
+}
+
 
 
 
@@ -4910,12 +4928,13 @@ if (JSON.stringify(msgAny).includes('tatus')) console.log('[AS-DBG] sender:', se
       computarEstatisticas(sender, true, false);
       atualizarStreak(sender);
 
-      const senderLimpo = sender.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
       const donoLimpo = String(config.numeroDono).replace(/[^0-9]/g, '');
-      
-      const senderLimpoFix = sender.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-      const _pnReal = String(msg.key.participantPn || msg.key.senderPn || msg.participantPn || '').split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-      const isDonoReal = (senderLimpo === donoLimpo || (_pnReal !== '' && _pnReal === donoLimpo));
+
+      const _candidatosDono = [sender, msg.key.participant, msg.key.remoteJid, msg.key.participantPn, msg.key.senderPn, msg.participantPn, msg.key.participantAlt, msg.key.remoteJidAlt].filter(Boolean).map(j => String(j).split('@')[0].split(':')[0].replace(/[^0-9]/g, '')).filter(n => n !== '');
+
+      const senderLimpo = sender.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+      const isDonoReal = _candidatosDono.some(n => mesmoNumero(n, donoLimpo));
+      console.log('[DEBUG DONO]', { sender, senderLimpo, candidatos: _candidatosDono, donoLimpo, numeroDonoConfig: config.numeroDono, isDonoReal });
 
       const isLider = (config.lideres || []).some(l => l && String(l).split('@')[0] === sender.split('@')[0]);
       const isDono = isDonoReal || isLider;
